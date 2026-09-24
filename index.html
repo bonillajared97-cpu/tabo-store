@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Catálogo Tabo</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --gold:#D4AF37;
+    --accent:#0E7A55;
+    --bg:#FAF9F6;
+    --surface:#FFFFFF;
+    --ink:#1A1712;
+    --muted:#6B6459;
+    --border:rgba(26,23,18,.12);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --accent:#38B884;
+      --bg:#14120F;
+      --surface:#1E1B17;
+      --ink:#F2EEE4;
+      --muted:#A69C8C;
+      --border:rgba(255,255,255,.12);
+      color-scheme: dark;
+    }
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif;}
+  h1,h2{font-family:'Manrope',sans-serif;margin:0;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+
+  header.top{
+    background:#0B0A08;border-bottom:2px solid var(--gold);
+    padding:16px;display:flex;align-items:center;gap:10px;
+  }
+  .logo-dot{width:30px;height:30px;border-radius:8px;background:var(--gold);
+    display:flex;align-items:center;justify-content:center;font-weight:800;color:#0B0A08;font-family:'Manrope',sans-serif;}
+  header.top .word{color:#fff;font-weight:800;font-size:17px;letter-spacing:.02em;}
+  header.top .sub{color:var(--gold);font-size:13px;margin-left:2px;}
+
+  main{max-width:900px;margin:0 auto;padding:20px 16px 40px;}
+  .intro h1{font-size:22px;margin-bottom:6px;}
+  .intro p{color:var(--muted);font-size:14px;margin:0 0 22px;}
+
+  #status{color:var(--muted);font-size:14px;padding:20px 0;}
+
+  .product-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:18px;}
+  .product-photo{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;background:var(--border);}
+  .product-body{padding:16px;}
+  .product-name{font-family:'Manrope',sans-serif;font-weight:800;font-size:18px;}
+  .product-price{color:var(--accent);font-weight:700;font-size:16px;margin-top:2px;font-family:'IBM Plex Mono',monospace;}
+  .colorLabel{font-size:12px;color:var(--muted);margin:14px 0 8px;text-transform:uppercase;letter-spacing:.04em;}
+  .colorGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:10px;}
+  .colorItem{border:1px solid var(--border);border-radius:10px;padding:8px;text-align:center;font-size:11px;}
+  .colorItem img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:7px;margin-bottom:6px;cursor:pointer;background:var(--border);}
+  .colorItem.outofstock{opacity:.5;}
+  .cname{font-weight:600;}
+  .cstock{color:var(--accent);}
+  .outofstock .cstock{color:var(--muted);}
+
+  footer{max-width:900px;margin:0 auto;padding:0 16px 30px;}
+  .wa-btn{
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    background:#25D366;color:#06210F;font-weight:700;text-decoration:none;
+    padding:14px;border-radius:12px;font-size:15px;
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="logo-dot">T</div>
+  <span class="word">TABO</span>
+  <span class="sub">Catálogo</span>
+</header>
+
+<main>
+  <div class="intro">
+    <h1>Estos son nuestros productos disponibles</h1>
+    <p>Toca una foto para verla más grande. El stock se actualiza en vivo.</p>
+  </div>
+  <div id="status">Cargando catálogo...</div>
+  <div id="catalog"></div>
+</main>
+
+<footer>
+  <a class="wa-btn" href="https://wa.me/593979805503?text=Hola!%20Vi%20el%20cat%C3%A1logo%20de%20Tabo%20Store%20y%20me%20interesa%20hacer%20un%20pedido." target="_blank" rel="noopener">
+    💬 Escribir por WhatsApp
+  </a>
+</footer>
+
+<script>
+var CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRObh23AELq2-BNj7mOJQc_5FzQWTuVtHSuod2R0KP_egjU0CSTdY0G_6DgUH0xoCYI6orcAOMJo9iI/pub?gid=0&single=true&output=csv";
+
+function parseCSV(text){
+  var lines = text.replace(/\r/g,"").split("\n").filter(function(l){ return l.trim().length; });
+  var headers = lines[0].split(",").map(function(h){ return h.trim(); });
+  return lines.slice(1).map(function(line){
+    var cells = line.split(",");
+    var row = {};
+    headers.forEach(function(h, i){ row[h] = (cells[i]||"").trim(); });
+    return row;
+  });
+}
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function money(n){ return '$' + Number(n).toFixed(2); }
+
+fetch(CSV_URL, {cache:"no-store"})
+  .then(function(r){
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    return r.text();
+  })
+  .then(function(text){
+    var rows = parseCSV(text);
+    render(rows);
+  })
+  .catch(function(err){
+    document.getElementById('status').textContent = "No se pudo cargar el catálogo. Intenta de nuevo en un momento.";
+    console.error(err);
+  });
+
+function render(rows){
+  document.getElementById('status').remove();
+
+  var byProduct = {};
+  rows.forEach(function(r){
+    if(!byProduct[r.producto]) byProduct[r.producto] = [];
+    byProduct[r.producto].push(r);
+  });
+
+  var html = Object.keys(byProduct).map(function(pname){
+    var variants = byProduct[pname];
+    var price = variants[0].precio;
+    var mainImg = variants[0].imagen;
+
+    var colors = variants.map(function(v){
+      var stock = parseInt(v.stock, 10) || 0;
+      var out = stock === 0;
+      return '<div class="colorItem'+(out?' outofstock':'')+'">'
+        + '<img src="'+esc(v.imagen)+'" alt="" onclick="this.classList.toggle(\'enlarged\')">'
+        + '<div class="cname">'+esc(v.variante)+'</div>'
+        + '<div class="cstock">'+(out?'Agotado':(stock+' disp.'))+'</div>'
+        + '</div>';
+    }).join('');
+
+    return '<div class="product-card">'
+      + '<img class="product-photo" src="'+esc(mainImg)+'" alt="">'
+      + '<div class="product-body">'
+      +   '<div class="product-name">'+esc(pname)+'</div>'
+      +   '<div class="product-price">'+money(price)+'</div>'
+      +   '<div class="colorLabel">Colores y tallas disponibles</div>'
+      +   '<div class="colorGrid">'+colors+'</div>'
+      + '</div></div>';
+  }).join('');
+
+  document.getElementById('catalog').innerHTML = html;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Formulario de envío</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --gold:#D4AF37;
+    --accent:#0E7A55;
+    --bg:#FAF9F6;
+    --surface:#FFFFFF;
+    --ink:#1A1712;
+    --muted:#6B6459;
+    --border:rgba(26,23,18,.12);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --accent:#38B884;
+      --bg:#14120F;
+      --surface:#1E1B17;
+      --ink:#F2EEE4;
+      --muted:#A69C8C;
+      --border:rgba(255,255,255,.12);
+      color-scheme: dark;
+    }
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif;}
+  h1,h2,h3{font-family:'Manrope',sans-serif;margin:0;}
+
+  header.top{background:#0B0A08;border-bottom:2px solid var(--gold);padding:16px;display:flex;align-items:center;gap:10px;}
+  .logo-dot{width:30px;height:30px;border-radius:8px;background:var(--gold);display:flex;align-items:center;justify-content:center;font-weight:800;color:#0B0A08;font-family:'Manrope',sans-serif;}
+  header.top .word{color:#fff;font-weight:800;font-size:17px;letter-spacing:.02em;}
+  header.top .sub{color:var(--gold);font-size:13px;margin-left:2px;}
+
+  main{max-width:640px;margin:0 auto;padding:20px 16px 60px;}
+  .intro p{color:var(--muted);font-size:14px;margin:6px 0 22px;}
+  h2.section{font-size:13px;color:var(--accent);text-transform:uppercase;letter-spacing:.04em;margin:24px 0 10px;}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px;}
+  label{display:block;font-size:12.5px;color:var(--muted);margin:0 0 6px;}
+  select,input{
+    width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:10px;
+    background:var(--bg);color:var(--ink);font-size:14px;font-family:inherit;margin-bottom:14px;
+  }
+  select:last-child,input:last-child{margin-bottom:0;}
+
+  .variant-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:8px;margin-bottom:12px;}
+  .variant{border:1px solid var(--border);border-radius:10px;padding:7px;text-align:center;font-size:11px;cursor:pointer;background:var(--bg);}
+  .variant img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:7px;margin-bottom:5px;}
+  .variant.selected{border-color:var(--accent);border-width:2px;}
+  .variant.disabled{opacity:.4;cursor:not-allowed;}
+  .vstock{color:var(--accent);}
+  .variant.disabled .vstock{color:var(--muted);}
+
+  .qty-row{display:flex;align-items:center;gap:12px;margin-top:10px;}
+  .qty-btn{width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--ink);font-size:18px;cursor:pointer;}
+  .qty-val{font-family:'IBM Plex Mono',monospace;font-size:16px;min-width:24px;text-align:center;}
+
+  .toggle-row{display:flex;gap:8px;margin-bottom:14px;}
+  .toggle-btn{flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--ink);font-size:13px;cursor:pointer;}
+  .toggle-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+
+  .primary-btn{
+    width:100%;padding:15px;border:none;border-radius:12px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:15px;cursor:pointer;margin-top:8px;
+  }
+  .summary{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;white-space:pre-wrap;font-size:13.5px;line-height:1.6;display:none;}
+  .wa-btn{
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    background:#25D366;color:#06210F;font-weight:700;text-decoration:none;
+    padding:14px;border-radius:12px;font-size:15px;margin-top:12px;
+  }
+  .hint{font-size:12.5px;color:var(--muted);margin-top:10px;}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="logo-dot">T</div>
+  <span class="word">TABO</span>
+  <span class="sub">Formulario de envío</span>
+</header>
+
+<main>
+  <div class="intro">
+    <h1>Completa tu pedido</h1>
+    <p>Elige tu producto y llena tus datos de envío. Al final te dejamos el mensaje listo para mandarlo por WhatsApp.</p>
+  </div>
+
+  <h2 class="section">¿Qué vas a comprar?</h2>
+  <div class="card">
+    <label>Producto</label>
+    <select id="productSelect"><option value="">Cargando productos...</option></select>
+    <div id="variantWrap" style="display:none;">
+      <label>Color y talla</label>
+      <div class="variant-grid" id="variantGrid"></div>
+      <div class="qty-row">
+        <button class="qty-btn" id="qtyMinus" type="button">−</button>
+        <span class="qty-val" id="qtyVal">1</span>
+        <button class="qty-btn" id="qtyPlus" type="button">+</button>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="section">Tus datos de envío</h2>
+  <div class="card">
+    <label>Nombre completo *</label>
+    <input id="fName" placeholder="Tu nombre">
+    <label>Teléfono *</label>
+    <input id="fPhone" placeholder="Ej. 0999999999">
+    <label>Cédula *</label>
+    <input id="fCedula" placeholder="Número de cédula">
+    <label>Forma de entrega</label>
+    <div class="toggle-row">
+      <button class="toggle-btn active" id="btnDomicilio" type="button">A domicilio</button>
+      <button class="toggle-btn" id="btnServientrega" type="button">Oficina Servientrega</button>
+    </div>
+    <div id="domicilioFields">
+      <label>Ciudad *</label>
+      <input id="fCity" placeholder="Tu ciudad">
+      <label>Dirección *</label>
+      <input id="fAddress" placeholder="Dirección completa">
+    </div>
+    <div id="servientregaFields" style="display:none;">
+      <label>Oficina Servientrega (ciudad/dirección) *</label>
+      <input id="fOffice" placeholder="Ej. Oficina Servientrega, Av. Principal, Quito">
+    </div>
+    <label>Notas (opcional)</label>
+    <input id="fNotes" placeholder="Alguna indicación extra">
+  </div>
+
+  <button class="primary-btn" id="buildBtn" type="button">Generar mensaje de pedido</button>
+
+  <div class="summary" id="summary"></div>
+  <a class="wa-btn" id="waBtn" style="display:none;" target="_blank" rel="noopener">💬 Enviar por WhatsApp</a>
+  <div class="hint" id="copyHint" style="display:none;">Si el botón no abre WhatsApp, copia el texto de arriba y pégalo tú mismo en el chat con TABO STORE.</div>
+</main>
+
+<script>
+var CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRObh23AELq2-BNj7mOJQc_5FzQWTuVtHSuod2R0KP_egjU0CSTdY0G_6DgUH0xoCYI6orcAOMJo9iI/pub?gid=0&single=true&output=csv";
+var WHATSAPP_NUMBER = "593979805503";
+
+var PRODUCTS = {};
+var selectedVariant = null;
+var qty = 1;
+var deliveryMethod = "domicilio";
+
+function parseCSV(text){
+  var lines = text.replace(/\r/g,"").split("\n").filter(function(l){ return l.trim().length; });
+  var headers = lines[0].split(",").map(function(h){ return h.trim(); });
+  return lines.slice(1).map(function(line){
+    var cells = line.split(",");
+    var row = {};
+    headers.forEach(function(h, i){ row[h] = (cells[i]||"").trim(); });
+    return row;
+  });
+}
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+fetch(CSV_URL, {cache:"no-store"})
+  .then(function(r){ return r.text(); })
+  .then(function(text){
+    var rows = parseCSV(text);
+    rows.forEach(function(r){
+      if(!PRODUCTS[r.producto]) PRODUCTS[r.producto] = [];
+      PRODUCTS[r.producto].push(r);
+    });
+    var select = document.getElementById('productSelect');
+    select.innerHTML = '<option value="">Selecciona un producto</option>' +
+      Object.keys(PRODUCTS).map(function(p){ return '<option value="'+esc(p)+'">'+esc(p)+'</option>'; }).join('');
+  })
+  .catch(function(err){
+    document.getElementById('productSelect').innerHTML = '<option value="">No se pudo cargar</option>';
+    console.error(err);
+  });
+
+document.getElementById('productSelect').addEventListener('change', function(){
+  var pname = this.value;
+  selectedVariant = null;
+  qty = 1;
+  var wrap = document.getElementById('variantWrap');
+  if(!pname){ wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  var variants = PRODUCTS[pname];
+  document.getElementById('variantGrid').innerHTML = variants.map(function(v, i){
+    var stock = parseInt(v.stock, 10) || 0;
+    var out = stock === 0;
+    return '<div class="variant'+(out?' disabled':'')+'" data-idx="'+i+'" data-product="'+esc(pname)+'">'
+      + '<img src="'+esc(v.imagen)+'" alt="">'
+      + '<div>'+esc(v.variante)+'</div>'
+      + '<div class="vstock">'+(out?'Agotado':(stock+' disp.'))+'</div>'
+      + '</div>';
+  }).join('');
+  document.getElementById('qtyVal').textContent = qty;
+});
+
+document.getElementById('variantGrid').addEventListener('click', function(e){
+  var el = e.target.closest('.variant');
+  if(!el || el.classList.contains('disabled')) return;
+  document.querySelectorAll('.variant').forEach(function(v){ v.classList.remove('selected'); });
+  el.classList.add('selected');
+  var pname = el.dataset.product;
+  var idx = parseInt(el.dataset.idx, 10);
+  selectedVariant = PRODUCTS[pname][idx];
+  qty = 1;
+  document.getElementById('qtyVal').textContent = qty;
+});
+
+document.getElementById('qtyMinus').addEventListener('click', function(){
+  if(qty > 1) qty--;
+  document.getElementById('qtyVal').textContent = qty;
+});
+document.getElementById('qtyPlus').addEventListener('click', function(){
+  if(!selectedVariant) return;
+  var stock = parseInt(selectedVariant.stock, 10) || 0;
+  if(qty < stock) qty++;
+  document.getElementById('qtyVal').textContent = qty;
+});
+
+document.getElementById('btnDomicilio').addEventListener('click', function(){
+  deliveryMethod = 'domicilio';
+  this.classList.add('active');
+  document.getElementById('btnServientrega').classList.remove('active');
+  document.getElementById('domicilioFields').style.display = 'block';
+  document.getElementById('servientregaFields').style.display = 'none';
+});
+document.getElementById('btnServientrega').addEventListener('click', function(){
+  deliveryMethod = 'servientrega';
+  this.classList.add('active');
+  document.getElementById('btnDomicilio').classList.remove('active');
+  document.getElementById('domicilioFields').style.display = 'none';
+  document.getElementById('servientregaFields').style.display = 'block';
+});
+
+document.getElementById('buildBtn').addEventListener('click', function(){
+  if(!selectedVariant){ alert('Elige color y talla primero.'); return; }
+  var name = document.getElementById('fName').value.trim();
+  var phone = document.getElementById('fPhone').value.trim();
+  var cedula = document.getElementById('fCedula').value.trim();
+  var notes = document.getElementById('fNotes').value.trim();
+  if(!name || !phone || !cedula){ alert('Completa nombre, teléfono y cédula.'); return; }
+
+  var deliveryLine, addressLine;
+  if(deliveryMethod === 'domicilio'){
+    var city = document.getElementById('fCity').value.trim();
+    var address = document.getElementById('fAddress').value.trim();
+    if(!city || !address){ alert('Completa ciudad y dirección.'); return; }
+    deliveryLine = 'A domicilio';
+    addressLine = city + ' - ' + address;
+  } else {
+    var office = document.getElementById('fOffice').value.trim();
+    if(!office){ alert('Completa la oficina Servientrega.'); return; }
+    deliveryLine = 'Oficina Servientrega';
+    addressLine = office;
+  }
+
+  var lines = [
+    'Hola TABO STORE! Quiero hacer este pedido:',
+    '',
+    'Producto 1: ' + selectedVariant.producto,
+    'Color 1: ' + selectedVariant.variante,
+    'Cantidad 1: ' + qty,
+    '',
+    'Nombre: ' + name,
+    'Teléfono: ' + phone,
+    'Cédula: ' + cedula,
+    'Forma de entrega: ' + deliveryLine,
+    'Dirección: ' + addressLine
+  ];
+  if(notes) lines.push('Notas: ' + notes);
+
+  var msg = lines.join('\n');
+  var summary = document.getElementById('summary');
+  summary.textContent = msg;
+  summary.style.display = 'block';
+
+  var waBtn = document.getElementById('waBtn');
+  waBtn.href = 'https://wa.me/' + WHATSAPP_NUMBER + '?text=' + encodeURIComponent(msg);
+  waBtn.style.display = 'flex';
+  document.getElementById('copyHint').style.display = 'block';
+
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(msg).catch(function(){});
+  }
+
+  summary.scrollIntoView({behavior:'smooth', block:'start'});
+});
+</script>
+</body>
+</html>
