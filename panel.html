@@ -76,6 +76,17 @@
   @media (max-width:480px){
     .pedido-grid{grid-template-columns:1fr;}
   }
+
+  .stock-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:28px;}
+  .stock-item{
+    background:var(--surface);border:1px solid var(--border);border-radius:10px;
+    padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px;
+  }
+  .stock-item.low{border-color:var(--gold);}
+  .stock-item.out{opacity:.55;}
+  .stock-name{font-size:12.5px;}
+  .stock-num{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;color:var(--accent);}
+  .stock-item.out .stock-num{color:var(--muted);}
 </style>
 </head>
 <body>
@@ -103,6 +114,10 @@
     </div>
   </div>
 
+  <h2 class="section">Inventario</h2>
+  <div id="stockStatus" style="color:var(--muted);font-size:14px;margin-bottom:16px;">Cargando stock...</div>
+  <div class="stock-grid" id="stockGrid"></div>
+
   <h2 class="section">Pedidos recientes</h2>
   <div id="status">Cargando pedidos...</div>
   <div id="empty">Todavía no hay pedidos registrados. Apenas un cliente compre por el Formulario, aparecerán aquí.</div>
@@ -111,6 +126,7 @@
 
 <script>
 var CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRObh23AELq2-BNj7mOJQc_5FzQWTuVtHSuod2R0KP_egjU0CSTdY0G_6DgUH0xoCYI6orcAOMJo9iI/pub?gid=1780170729&single=true&output=csv";
+var INVENTARIO_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRObh23AELq2-BNj7mOJQc_5FzQWTuVtHSuod2R0KP_egjU0CSTdY0G_6DgUH0xoCYI6orcAOMJo9iI/pub?gid=0&single=true&output=csv";
 var WHATSAPP_NUMBER_DEFAULT = "593979805503";
 
 function parseCSV(text){
@@ -140,6 +156,30 @@ fetch(CSV_URL, {cache:"no-store"})
     document.getElementById('status').textContent = "No se pudieron cargar los pedidos. Intenta de nuevo en un momento.";
     console.error(err);
   });
+
+fetch(INVENTARIO_CSV_URL, {cache:"no-store"})
+  .then(function(r){ return r.text(); })
+  .then(function(text){
+    var rows = parseCSV(text);
+    renderStock(rows);
+  })
+  .catch(function(err){
+    document.getElementById('stockStatus').textContent = "No se pudo cargar el inventario.";
+    console.error(err);
+  });
+
+function renderStock(rows){
+  document.getElementById('stockStatus').remove();
+  var html = rows.map(function(r){
+    var stock = parseInt(r.stock, 10) || 0;
+    var cls = stock === 0 ? 'out' : (stock <= 2 ? 'low' : '');
+    return '<div class="stock-item ' + cls + '">'
+      + '<span class="stock-name">' + esc(r.variante) + '</span>'
+      + '<span class="stock-num">' + (stock === 0 ? 'Agotado' : stock) + '</span>'
+      + '</div>';
+  }).join('');
+  document.getElementById('stockGrid').innerHTML = html;
+}
 
 function render(rows){
   document.getElementById('status').remove();
