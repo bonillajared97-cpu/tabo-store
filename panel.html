@@ -166,11 +166,24 @@
 
     <label>Forma de entrega</label>
     <div class="manual-toggle-row">
-      <button class="manual-toggle-btn active" type="button" id="manualBtnRetiro">Retiro / entrega directa</button>
-      <button class="manual-toggle-btn" type="button" id="manualBtnEnvio">Envío</button>
+      <button class="manual-toggle-btn active" type="button" id="manualBtnDomicilio">A domicilio</button>
+      <button class="manual-toggle-btn" type="button" id="manualBtnServientrega">Oficina Servientrega</button>
+      <button class="manual-toggle-btn" type="button" id="manualBtnMotorista">Por motorista</button>
     </div>
-    <label>Dirección (opcional)</label>
-    <input id="manualDireccion" placeholder="Ciudad y dirección, si aplica">
+    <div id="manualDomicilioFields">
+      <label>Ciudad (opcional)</label>
+      <input id="manualCity" placeholder="Tu ciudad">
+      <label>Dirección (opcional)</label>
+      <input id="manualAddress" placeholder="Dirección completa">
+    </div>
+    <div id="manualServientregaFields" style="display:none;">
+      <label>Oficina Servientrega (opcional)</label>
+      <input id="manualOffice" placeholder="Ej. Oficina Servientrega, Av. Principal, Quito">
+    </div>
+    <div id="manualMotoristaFields" style="display:none;">
+      <label>Dirección para el motorista (opcional)</label>
+      <input id="manualMotoAddress" placeholder="Ciudad y dirección de entrega">
+    </div>
     <label>Notas (opcional)</label>
     <input id="manualNotas" placeholder="Ej. Pagó en efectivo">
 
@@ -213,7 +226,7 @@ var PRECIO_MAYOR = 13.00;
 var PRECIO_COMBO = 32.00;
 var inventarioRows = [];
 var manualTileQty = {};
-var manualEntrega = 'Retiro / entrega directa';
+var manualEntrega = 'A domicilio';
 var manualPrecioTipo = 'unidad';
 var cart = [];
 
@@ -399,15 +412,32 @@ document.getElementById('cartList').addEventListener('click', function(e){
   renderCart();
 });
 
-document.getElementById('manualBtnRetiro').addEventListener('click', function(){
-  manualEntrega = 'Retiro / entrega directa';
+document.getElementById('manualBtnDomicilio').addEventListener('click', function(){
+  manualEntrega = 'A domicilio';
   this.classList.add('active');
-  document.getElementById('manualBtnEnvio').classList.remove('active');
+  document.getElementById('manualBtnServientrega').classList.remove('active');
+  document.getElementById('manualBtnMotorista').classList.remove('active');
+  document.getElementById('manualDomicilioFields').style.display = 'block';
+  document.getElementById('manualServientregaFields').style.display = 'none';
+  document.getElementById('manualMotoristaFields').style.display = 'none';
 });
-document.getElementById('manualBtnEnvio').addEventListener('click', function(){
-  manualEntrega = 'Envío';
+document.getElementById('manualBtnServientrega').addEventListener('click', function(){
+  manualEntrega = 'Oficina Servientrega';
   this.classList.add('active');
-  document.getElementById('manualBtnRetiro').classList.remove('active');
+  document.getElementById('manualBtnDomicilio').classList.remove('active');
+  document.getElementById('manualBtnMotorista').classList.remove('active');
+  document.getElementById('manualDomicilioFields').style.display = 'none';
+  document.getElementById('manualServientregaFields').style.display = 'block';
+  document.getElementById('manualMotoristaFields').style.display = 'none';
+});
+document.getElementById('manualBtnMotorista').addEventListener('click', function(){
+  manualEntrega = 'Por motorista';
+  this.classList.add('active');
+  document.getElementById('manualBtnDomicilio').classList.remove('active');
+  document.getElementById('manualBtnServientrega').classList.remove('active');
+  document.getElementById('manualDomicilioFields').style.display = 'none';
+  document.getElementById('manualServientregaFields').style.display = 'none';
+  document.getElementById('manualMotoristaFields').style.display = 'block';
 });
 
 document.getElementById('manualBtn').addEventListener('click', function(){
@@ -415,7 +445,16 @@ document.getElementById('manualBtn').addEventListener('click', function(){
   var nombre = document.getElementById('manualNombre').value.trim() || 'Venta directa';
   var telefono = document.getElementById('manualTelefono').value.trim();
   var cedula = document.getElementById('manualCedula').value.trim();
-  var direccion = document.getElementById('manualDireccion').value.trim();
+  var direccion = '';
+  if(manualEntrega === 'A domicilio'){
+    var city = document.getElementById('manualCity').value.trim();
+    var address = document.getElementById('manualAddress').value.trim();
+    direccion = (city || address) ? (city + (city && address ? ' - ' : '') + address) : '';
+  } else if(manualEntrega === 'Oficina Servientrega'){
+    direccion = document.getElementById('manualOffice').value.trim();
+  } else if(manualEntrega === 'Por motorista'){
+    direccion = document.getElementById('manualMotoAddress').value.trim();
+  }
   var notas = document.getElementById('manualNotas').value.trim();
   var btn = document.getElementById('manualBtn');
   var hint = document.getElementById('manualHint');
@@ -434,7 +473,10 @@ document.getElementById('manualBtn').addEventListener('click', function(){
       document.getElementById('manualNombre').value = '';
       document.getElementById('manualTelefono').value = '';
       document.getElementById('manualCedula').value = '';
-      document.getElementById('manualDireccion').value = '';
+      document.getElementById('manualCity').value = '';
+      document.getElementById('manualAddress').value = '';
+      document.getElementById('manualOffice').value = '';
+      document.getElementById('manualMotoAddress').value = '';
       document.getElementById('manualNotas').value = '';
       btn.disabled = false;
       btn.textContent = 'Registrar venta';
