@@ -90,13 +90,37 @@
 
   .manual-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:28px;}
   .manual-card label{display:block;font-size:12.5px;color:var(--muted);margin:0 0 6px;}
-  .manual-card select,.manual-card input{
+  .manual-card input{
     width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;
     background:var(--bg);color:var(--ink);font-size:14px;font-family:inherit;margin-bottom:12px;
   }
-  .manual-row{display:flex;align-items:center;gap:12px;margin:2px 0 14px;}
+  .manual-variant-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:8px;margin-bottom:14px;}
+  .manual-variant{border:1px solid var(--border);border-radius:10px;padding:7px;text-align:center;font-size:11px;cursor:pointer;background:var(--bg);}
+  .manual-variant img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:7px;margin-bottom:5px;}
+  .manual-variant.selected{border-color:var(--accent);border-width:2px;}
+  .manual-variant.disabled{opacity:.4;cursor:not-allowed;}
+  .mv-stock{color:var(--accent);}
+  .manual-variant.disabled .mv-stock{color:var(--muted);}
+  .manual-row{display:flex;align-items:center;gap:12px;margin:2px 0 14px;flex-wrap:wrap;}
   .qty-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--ink);font-size:17px;cursor:pointer;}
   .qty-val{font-family:'IBM Plex Mono',monospace;font-size:15px;min-width:20px;text-align:center;}
+  .cart-add-btn{
+    margin-left:auto;background:transparent;border:1px solid var(--accent);color:var(--accent);
+    border-radius:9px;padding:8px 14px;font-size:13px;cursor:pointer;font-weight:600;
+  }
+  .cart-list{margin-bottom:16px;}
+  .cart-item{
+    display:flex;align-items:center;gap:10px;
+    background:var(--surface-2);border-radius:10px;padding:8px 10px;margin-bottom:6px;font-size:13px;
+  }
+  .cart-item img{width:34px;height:34px;object-fit:cover;border-radius:6px;}
+  .cart-item-name{flex:1;}
+  .cart-item-qty{font-family:'IBM Plex Mono',monospace;color:var(--accent);}
+  .cart-item-remove{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:0 4px;}
+  .cart-total{font-size:12.5px;color:var(--muted);margin:-4px 0 14px;}
+  .manual-toggle-row{display:flex;gap:8px;margin-bottom:14px;}
+  .manual-toggle-btn{flex:1;padding:9px;border-radius:9px;border:1px solid var(--border);background:var(--bg);color:var(--ink);font-size:12.5px;cursor:pointer;}
+  .manual-toggle-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
   .manual-btn{
     width:100%;padding:13px;border:none;border-radius:11px;
     background:var(--accent);color:#fff;font-weight:700;font-size:14px;cursor:pointer;
@@ -117,17 +141,37 @@
   <h2 class="section">Registrar venta manual</h2>
   <div class="manual-card">
     <label>Producto / variante</label>
-    <select id="manualVariant"><option value="">Cargando...</option></select>
+    <div id="manualStatus" style="color:var(--muted);font-size:13px;margin-bottom:10px;">Cargando productos...</div>
+    <div class="manual-variant-grid" id="manualGrid"></div>
+
     <label>Cantidad</label>
     <div class="manual-row">
       <button class="qty-btn" type="button" id="manualQtyMinus">−</button>
       <span class="qty-val mono" id="manualQtyVal">1</span>
       <button class="qty-btn" type="button" id="manualQtyPlus">+</button>
+      <button class="cart-add-btn" type="button" id="manualAddBtn">+ Agregar al carrito</button>
     </div>
+
+    <div id="cartEmpty" style="color:var(--muted);font-size:13px;margin-bottom:14px;">Carrito vacío — elige un color/talla y agrégalo.</div>
+    <div id="cartList" class="cart-list"></div>
+
     <label>Cliente (opcional)</label>
     <input id="manualNombre" placeholder="Ej. Venta en el taller">
+    <label>Teléfono (opcional)</label>
+    <input id="manualTelefono" placeholder="Ej. 0999999999">
+    <label>Cédula (opcional)</label>
+    <input id="manualCedula" placeholder="Número de cédula">
+
+    <label>Forma de entrega</label>
+    <div class="manual-toggle-row">
+      <button class="manual-toggle-btn active" type="button" id="manualBtnRetiro">Retiro / entrega directa</button>
+      <button class="manual-toggle-btn" type="button" id="manualBtnEnvio">Envío</button>
+    </div>
+    <label>Dirección (opcional)</label>
+    <input id="manualDireccion" placeholder="Ciudad y dirección, si aplica">
     <label>Notas (opcional)</label>
     <input id="manualNotas" placeholder="Ej. Pagó en efectivo">
+
     <button class="manual-btn" type="button" id="manualBtn">Registrar venta</button>
     <div class="manual-hint" id="manualHint"></div>
   </div>
@@ -164,6 +208,9 @@ var BACKEND_URL = "https://script.google.com/macros/s/AKfycbxPsa_IDV7JwbsK7udjEq
 var WHATSAPP_NUMBER_DEFAULT = "593979805503";
 var manualQty = 1;
 var inventarioRows = [];
+var manualSelected = null;
+var manualEntrega = 'Retiro / entrega directa';
+var cart = [];
 
 function parseCSV(text){
   var lines = text.replace(/\r/g,"").split("\n").filter(function(l){ return l.trim().length; });
@@ -219,12 +266,28 @@ function renderStock(rows){
 }
 
 function renderManualSelect(rows){
-  var select = document.getElementById('manualVariant');
-  select.innerHTML = rows.map(function(r, i){
+  document.getElementById('manualStatus').remove();
+  var html = rows.map(function(r, i){
     var stock = parseInt(r.stock, 10) || 0;
-    return '<option value="' + i + '">' + esc(r.producto) + ' — ' + esc(r.variante) + ' (' + stock + ' disp.)</option>';
+    var out = stock === 0;
+    return '<div class="manual-variant' + (out?' disabled':'') + '" data-idx="' + i + '">'
+      + '<img src="' + esc(r.imagen) + '" alt="">'
+      + '<div>' + esc(r.variante) + '</div>'
+      + '<div class="mv-stock">' + (out ? 'Agotado' : (stock + ' disp.')) + '</div>'
+      + '</div>';
   }).join('');
+  document.getElementById('manualGrid').innerHTML = html;
 }
+
+document.getElementById('manualGrid').addEventListener('click', function(e){
+  var el = e.target.closest('.manual-variant');
+  if(!el || el.classList.contains('disabled')) return;
+  document.querySelectorAll('.manual-variant').forEach(function(v){ v.classList.remove('selected'); });
+  el.classList.add('selected');
+  manualSelected = inventarioRows[parseInt(el.dataset.idx, 10)];
+  manualQty = 1;
+  document.getElementById('manualQtyVal').textContent = manualQty;
+});
 
 document.getElementById('manualQtyMinus').addEventListener('click', function(){
   if(manualQty > 1) manualQty--;
@@ -235,11 +298,64 @@ document.getElementById('manualQtyPlus').addEventListener('click', function(){
   document.getElementById('manualQtyVal').textContent = manualQty;
 });
 
+document.getElementById('manualAddBtn').addEventListener('click', function(){
+  if(!manualSelected){ alert('Elige un color y talla primero.'); return; }
+  cart.push({
+    producto: manualSelected.producto,
+    variante: manualSelected.variante,
+    imagen: manualSelected.imagen,
+    cantidad: manualQty
+  });
+  renderCart();
+  manualSelected = null;
+  manualQty = 1;
+  document.getElementById('manualQtyVal').textContent = 1;
+  document.querySelectorAll('.manual-variant').forEach(function(v){ v.classList.remove('selected'); });
+});
+
+function renderCart(){
+  var empty = document.getElementById('cartEmpty');
+  var list = document.getElementById('cartList');
+  if(cart.length === 0){
+    empty.style.display = 'block';
+    list.innerHTML = '';
+    return;
+  }
+  empty.style.display = 'none';
+  list.innerHTML = cart.map(function(item, i){
+    return '<div class="cart-item">'
+      + '<img src="' + esc(item.imagen) + '" alt="">'
+      + '<span class="cart-item-name">' + esc(item.producto) + ' — ' + esc(item.variante) + '</span>'
+      + '<span class="cart-item-qty">x' + item.cantidad + '</span>'
+      + '<button class="cart-item-remove" type="button" data-i="' + i + '">✕</button>'
+      + '</div>';
+  }).join('');
+}
+
+document.getElementById('cartList').addEventListener('click', function(e){
+  var btn = e.target.closest('.cart-item-remove');
+  if(!btn) return;
+  cart.splice(parseInt(btn.dataset.i, 10), 1);
+  renderCart();
+});
+
+document.getElementById('manualBtnRetiro').addEventListener('click', function(){
+  manualEntrega = 'Retiro / entrega directa';
+  this.classList.add('active');
+  document.getElementById('manualBtnEnvio').classList.remove('active');
+});
+document.getElementById('manualBtnEnvio').addEventListener('click', function(){
+  manualEntrega = 'Envío';
+  this.classList.add('active');
+  document.getElementById('manualBtnRetiro').classList.remove('active');
+});
+
 document.getElementById('manualBtn').addEventListener('click', function(){
-  var idx = document.getElementById('manualVariant').value;
-  if(idx === ''){ alert('Elige un producto primero.'); return; }
-  var row = inventarioRows[idx];
+  if(cart.length === 0){ alert('Agrega al menos un producto al carrito primero.'); return; }
   var nombre = document.getElementById('manualNombre').value.trim() || 'Venta directa';
+  var telefono = document.getElementById('manualTelefono').value.trim();
+  var cedula = document.getElementById('manualCedula').value.trim();
+  var direccion = document.getElementById('manualDireccion').value.trim();
   var notas = document.getElementById('manualNotas').value.trim();
   var btn = document.getElementById('manualBtn');
   var hint = document.getElementById('manualHint');
@@ -247,34 +363,50 @@ document.getElementById('manualBtn').addEventListener('click', function(){
   btn.disabled = true;
   btn.textContent = 'Registrando...';
 
-  fetch(BACKEND_URL, {
-    method: 'POST',
-    mode: 'no-cors',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({
-      producto: row.producto,
-      variante: row.variante,
-      cantidad: manualQty,
-      nombre: nombre,
-      telefono: '',
-      cedula: '',
-      formaEntrega: '',
-      direccion: '',
-      notas: notas
-    })
-  }).then(function(){
-    hint.textContent = 'Venta registrada. El stock y el panel se actualizan en unos segundos (recarga si no lo ves aún).';
-    manualQty = 1;
-    document.getElementById('manualQtyVal').textContent = 1;
-    document.getElementById('manualNombre').value = '';
-    document.getElementById('manualNotas').value = '';
-    btn.disabled = false;
-    btn.textContent = 'Registrar venta';
-  }).catch(function(){
-    hint.textContent = 'Hubo un problema. Intenta de nuevo.';
-    btn.disabled = false;
-    btn.textContent = 'Registrar venta';
-  });
+  var items = cart.slice();
+  var i = 0;
+
+  function sendNext(){
+    if(i >= items.length){
+      hint.textContent = 'Venta registrada (' + items.length + ' artículo' + (items.length > 1 ? 's' : '') + '). El stock y el panel se actualizan en unos segundos (recarga si no lo ves aún).';
+      cart = [];
+      renderCart();
+      document.getElementById('manualNombre').value = '';
+      document.getElementById('manualTelefono').value = '';
+      document.getElementById('manualCedula').value = '';
+      document.getElementById('manualDireccion').value = '';
+      document.getElementById('manualNotas').value = '';
+      btn.disabled = false;
+      btn.textContent = 'Registrar venta';
+      return;
+    }
+    var item = items[i];
+    fetch(BACKEND_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        producto: item.producto,
+        variante: item.variante,
+        cantidad: item.cantidad,
+        nombre: nombre,
+        telefono: telefono,
+        cedula: cedula,
+        formaEntrega: manualEntrega,
+        direccion: direccion,
+        notas: notas
+      })
+    }).then(function(){
+      i++;
+      sendNext();
+    }).catch(function(){
+      hint.textContent = 'Hubo un problema a mitad del envío. Revisa la hoja para ver qué sí quedó registrado.';
+      btn.disabled = false;
+      btn.textContent = 'Registrar venta';
+    });
+  }
+
+  sendNext();
 });
 
 function render(rows){
