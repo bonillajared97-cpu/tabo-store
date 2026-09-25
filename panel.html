@@ -95,19 +95,18 @@
     width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;
     background:var(--bg);color:var(--ink);font-size:14px;font-family:inherit;margin-bottom:12px;
   }
-  .manual-variant-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:8px;margin-bottom:14px;}
-  .manual-variant{border:1px solid var(--border);border-radius:10px;padding:7px;text-align:center;font-size:11px;cursor:pointer;background:var(--bg);}
+  .manual-variant-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin-bottom:14px;}
+  .manual-variant{border:1px solid var(--border);border-radius:10px;padding:7px;text-align:center;font-size:11px;background:var(--bg);}
   .manual-variant img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:7px;margin-bottom:5px;}
-  .manual-variant.selected{border-color:var(--accent);border-width:2px;}
-  .manual-variant.disabled{opacity:.4;cursor:not-allowed;}
-  .mv-stock{color:var(--accent);}
+  .manual-variant.disabled{opacity:.45;}
+  .mv-stock{color:var(--accent);margin-bottom:6px;}
   .manual-variant.disabled .mv-stock{color:var(--muted);}
-  .manual-row{display:flex;align-items:center;gap:12px;margin:2px 0 14px;flex-wrap:wrap;}
-  .qty-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--ink);font-size:17px;cursor:pointer;}
-  .qty-val{font-family:'IBM Plex Mono',monospace;font-size:15px;min-width:20px;text-align:center;}
-  .cart-add-btn{
-    margin-left:auto;background:transparent;border:1px solid var(--accent);color:var(--accent);
-    border-radius:9px;padding:8px 14px;font-size:13px;cursor:pointer;font-weight:600;
+  .mv-qty-row{display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:6px;}
+  .mv-qty-btn{width:22px;height:22px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--ink);font-size:13px;cursor:pointer;line-height:1;}
+  .mv-qty-val{font-family:'IBM Plex Mono',monospace;font-size:12px;min-width:14px;}
+  .mv-add-btn{
+    width:100%;padding:6px;border:none;border-radius:7px;
+    background:var(--accent);color:#fff;font-size:11px;font-weight:600;cursor:pointer;
   }
   .cart-list{margin-bottom:16px;}
   .cart-item{
@@ -144,14 +143,6 @@
     <label>Producto / variante</label>
     <div id="manualStatus" style="color:var(--muted);font-size:13px;margin-bottom:10px;">Cargando productos...</div>
     <div class="manual-variant-grid" id="manualGrid"></div>
-
-    <label>Cantidad</label>
-    <div class="manual-row">
-      <button class="qty-btn" type="button" id="manualQtyMinus">−</button>
-      <span class="qty-val mono" id="manualQtyVal">1</span>
-      <button class="qty-btn" type="button" id="manualQtyPlus">+</button>
-      <button class="cart-add-btn" type="button" id="manualAddBtn">+ Agregar al carrito</button>
-    </div>
 
     <div id="cartEmpty" style="color:var(--muted);font-size:13px;margin-bottom:14px;">Carrito vacío — elige un color/talla y agrégalo.</div>
     <div id="cartList" class="cart-list"></div>
@@ -207,9 +198,8 @@ var CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRObh23AELq2-BNj7
 var INVENTARIO_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRObh23AELq2-BNj7mOJQc_5FzQWTuVtHSuod2R0KP_egjU0CSTdY0G_6DgUH0xoCYI6orcAOMJo9iI/pub?gid=0&single=true&output=csv";
 var BACKEND_URL = "https://script.google.com/macros/s/AKfycbxPsa_IDV7JwbsK7udjEq7sxFS2mkXyIfvC00mdxB8AuOOmh3DhX999e-WTfiafrj6Z/exec";
 var WHATSAPP_NUMBER_DEFAULT = "593979805503";
-var manualQty = 1;
 var inventarioRows = [];
-var manualSelected = null;
+var manualTileQty = {};
 var manualEntrega = 'Retiro / entrega directa';
 var cart = [];
 
@@ -269,50 +259,52 @@ function renderStock(rows){
 
 function renderManualSelect(rows){
   document.getElementById('manualStatus').remove();
+  manualTileQty = {};
   var html = rows.map(function(r, i){
     var stock = parseInt(r.stock, 10) || 0;
     var out = stock === 0;
+    manualTileQty[i] = 1;
     return '<div class="manual-variant' + (out?' disabled':'') + '" data-idx="' + i + '">'
       + '<img src="' + esc(r.imagen) + '" alt="">'
       + '<div>' + esc(r.variante) + '</div>'
       + '<div class="mv-stock">' + (out ? 'Agotado' : (stock + ' disp.')) + '</div>'
+      + (out ? '' :
+          '<div class="mv-qty-row">'
+          + '<button class="mv-qty-btn" type="button" data-action="minus" data-idx="'+i+'">−</button>'
+          + '<span class="mv-qty-val" id="mvqty-'+i+'">1</span>'
+          + '<button class="mv-qty-btn" type="button" data-action="plus" data-idx="'+i+'">+</button>'
+          + '</div>'
+          + '<button class="mv-add-btn" type="button" data-action="add" data-idx="'+i+'">Agregar</button>')
       + '</div>';
   }).join('');
   document.getElementById('manualGrid').innerHTML = html;
 }
 
 document.getElementById('manualGrid').addEventListener('click', function(e){
-  var el = e.target.closest('.manual-variant');
-  if(!el || el.classList.contains('disabled')) return;
-  document.querySelectorAll('.manual-variant').forEach(function(v){ v.classList.remove('selected'); });
-  el.classList.add('selected');
-  manualSelected = inventarioRows[parseInt(el.dataset.idx, 10)];
-  manualQty = 1;
-  document.getElementById('manualQtyVal').textContent = manualQty;
-});
+  var btn = e.target.closest('button');
+  if(!btn) return;
+  var idx = parseInt(btn.dataset.idx, 10);
+  var row = inventarioRows[idx];
+  var stock = parseInt(row.stock, 10) || 0;
+  var action = btn.dataset.action;
 
-document.getElementById('manualQtyMinus').addEventListener('click', function(){
-  if(manualQty > 1) manualQty--;
-  document.getElementById('manualQtyVal').textContent = manualQty;
-});
-document.getElementById('manualQtyPlus').addEventListener('click', function(){
-  manualQty++;
-  document.getElementById('manualQtyVal').textContent = manualQty;
-});
-
-document.getElementById('manualAddBtn').addEventListener('click', function(){
-  if(!manualSelected){ alert('Elige un color y talla primero.'); return; }
-  cart.push({
-    producto: manualSelected.producto,
-    variante: manualSelected.variante,
-    imagen: manualSelected.imagen,
-    cantidad: manualQty
-  });
-  renderCart();
-  manualSelected = null;
-  manualQty = 1;
-  document.getElementById('manualQtyVal').textContent = 1;
-  document.querySelectorAll('.manual-variant').forEach(function(v){ v.classList.remove('selected'); });
+  if(action === 'minus'){
+    if(manualTileQty[idx] > 1) manualTileQty[idx]--;
+    document.getElementById('mvqty-'+idx).textContent = manualTileQty[idx];
+  } else if(action === 'plus'){
+    if(manualTileQty[idx] < stock) manualTileQty[idx]++;
+    document.getElementById('mvqty-'+idx).textContent = manualTileQty[idx];
+  } else if(action === 'add'){
+    cart.push({
+      producto: row.producto,
+      variante: row.variante,
+      imagen: row.imagen,
+      cantidad: manualTileQty[idx]
+    });
+    manualTileQty[idx] = 1;
+    document.getElementById('mvqty-'+idx).textContent = 1;
+    renderCart();
+  }
 });
 
 function renderCart(){
