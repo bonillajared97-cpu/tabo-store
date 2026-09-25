@@ -117,9 +117,11 @@
   .cart-item-name{flex:1;}
   .cart-item-qty{font-family:'IBM Plex Mono',monospace;color:var(--accent);}
   .cart-item-remove{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:0 4px;}
-  .cart-total{font-size:12.5px;color:var(--muted);margin:-4px 0 14px;}
-  .manual-toggle-row{display:flex;gap:8px;margin-bottom:14px;}
-  .manual-toggle-btn{flex:1;padding:9px;border-radius:9px;border:1px solid var(--border);background:var(--bg);color:var(--ink);font-size:12.5px;cursor:pointer;}
+  .cart-item-price{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);}
+  .cart-total{font-size:13px;color:var(--ink);margin:0 0 14px;font-weight:600;}
+  .pedido-total{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--accent);background:var(--surface-2);border-radius:6px;padding:2px 8px;}
+  .manual-toggle-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+  .manual-toggle-btn{flex:1;min-width:90px;padding:9px 6px;border-radius:9px;border:1px solid var(--border);background:var(--bg);color:var(--ink);font-size:11.5px;cursor:pointer;}
   .manual-toggle-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
   .manual-btn{
     width:100%;padding:13px;border:none;border-radius:11px;
@@ -144,8 +146,16 @@
     <div id="manualStatus" style="color:var(--muted);font-size:13px;margin-bottom:10px;">Cargando productos...</div>
     <div class="manual-variant-grid" id="manualGrid"></div>
 
+    <label>Tipo de precio</label>
+    <div class="manual-toggle-row">
+      <button class="manual-toggle-btn active" type="button" id="manualBtnUnidad">Unidad — $17.99</button>
+      <button class="manual-toggle-btn" type="button" id="manualBtnMayor">Mayor — $13.00</button>
+      <button class="manual-toggle-btn" type="button" id="manualBtnCombo">Combo 2x — $32.00</button>
+    </div>
+
     <div id="cartEmpty" style="color:var(--muted);font-size:13px;margin-bottom:14px;">Carrito vacío — elige un color/talla y agrégalo.</div>
     <div id="cartList" class="cart-list"></div>
+    <div id="cartTotal" class="cart-total" style="display:none;"></div>
 
     <label>Cliente (opcional)</label>
     <input id="manualNombre" placeholder="Ej. Venta en el taller">
@@ -198,10 +208,21 @@ var CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRObh23AELq2-BNj7
 var INVENTARIO_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRObh23AELq2-BNj7mOJQc_5FzQWTuVtHSuod2R0KP_egjU0CSTdY0G_6DgUH0xoCYI6orcAOMJo9iI/pub?gid=0&single=true&output=csv";
 var BACKEND_URL = "https://script.google.com/macros/s/AKfycbxPsa_IDV7JwbsK7udjEq7sxFS2mkXyIfvC00mdxB8AuOOmh3DhX999e-WTfiafrj6Z/exec";
 var WHATSAPP_NUMBER_DEFAULT = "593979805503";
+var PRECIO_UNIDAD = 17.99;
+var PRECIO_MAYOR = 13.00;
+var PRECIO_COMBO = 32.00;
 var inventarioRows = [];
 var manualTileQty = {};
 var manualEntrega = 'Retiro / entrega directa';
+var manualPrecioTipo = 'unidad';
 var cart = [];
+
+function calcPrecio(tipo, cantidad){
+  if(tipo === 'mayor') return { unitario: PRECIO_MAYOR, total: Math.round(cantidad * PRECIO_MAYOR * 100) / 100 };
+  if(tipo === 'combo') return { unitario: PRECIO_COMBO / 2, total: Math.round((cantidad / 2) * PRECIO_COMBO * 100) / 100 };
+  return { unitario: PRECIO_UNIDAD, total: Math.round(cantidad * PRECIO_UNIDAD * 100) / 100 };
+}
+function tipoStep(tipo){ return tipo === 'combo' ? 2 : 1; }
 
 function parseCSV(text){
   var lines = text.replace(/\r/g,"").split("\n").filter(function(l){ return l.trim().length; });
@@ -288,42 +309,87 @@ document.getElementById('manualGrid').addEventListener('click', function(e){
   var stock = parseInt(row.stock, 10) || 0;
   var action = btn.dataset.action;
 
+  var step = tipoStep(manualPrecioTipo);
+
   if(action === 'minus'){
-    if(manualTileQty[idx] > 1) manualTileQty[idx]--;
+    if(manualTileQty[idx] > step) manualTileQty[idx] -= step;
     document.getElementById('mvqty-'+idx).textContent = manualTileQty[idx];
   } else if(action === 'plus'){
-    if(manualTileQty[idx] < stock) manualTileQty[idx]++;
+    if(manualTileQty[idx] + step <= stock) manualTileQty[idx] += step;
     document.getElementById('mvqty-'+idx).textContent = manualTileQty[idx];
   } else if(action === 'add'){
+    if(manualPrecioTipo === 'combo' && manualTileQty[idx] < 2){ alert('El combo es de mínimo 2 unidades.'); return; }
+    var precio = calcPrecio(manualPrecioTipo, manualTileQty[idx]);
     cart.push({
       producto: row.producto,
       variante: row.variante,
       imagen: row.imagen,
-      cantidad: manualTileQty[idx]
+      cantidad: manualTileQty[idx],
+      precioUnitario: precio.unitario,
+      total: precio.total,
+      tipoPrecio: manualPrecioTipo
     });
-    manualTileQty[idx] = 1;
-    document.getElementById('mvqty-'+idx).textContent = 1;
+    manualTileQty[idx] = step;
+    document.getElementById('mvqty-'+idx).textContent = manualTileQty[idx];
     renderCart();
   }
 });
 
+function setManualPrecioTipo(tipo){
+  manualPrecioTipo = tipo;
+  var step = tipoStep(tipo);
+  Object.keys(manualTileQty).forEach(function(idx){
+    manualTileQty[idx] = step;
+    var el = document.getElementById('mvqty-'+idx);
+    if(el) el.textContent = step;
+  });
+}
+
+document.getElementById('manualBtnUnidad').addEventListener('click', function(){
+  setManualPrecioTipo('unidad');
+  this.classList.add('active');
+  document.getElementById('manualBtnMayor').classList.remove('active');
+  document.getElementById('manualBtnCombo').classList.remove('active');
+});
+document.getElementById('manualBtnMayor').addEventListener('click', function(){
+  setManualPrecioTipo('mayor');
+  this.classList.add('active');
+  document.getElementById('manualBtnUnidad').classList.remove('active');
+  document.getElementById('manualBtnCombo').classList.remove('active');
+});
+document.getElementById('manualBtnCombo').addEventListener('click', function(){
+  setManualPrecioTipo('combo');
+  this.classList.add('active');
+  document.getElementById('manualBtnUnidad').classList.remove('active');
+  document.getElementById('manualBtnMayor').classList.remove('active');
+});
+
+function money(n){ return '$' + Number(n).toFixed(2); }
+
 function renderCart(){
   var empty = document.getElementById('cartEmpty');
   var list = document.getElementById('cartList');
+  var totalEl = document.getElementById('cartTotal');
   if(cart.length === 0){
     empty.style.display = 'block';
     list.innerHTML = '';
+    totalEl.style.display = 'none';
     return;
   }
   empty.style.display = 'none';
+  var tipoLabel = { unidad: 'unidad', mayor: 'mayor', combo: 'combo' };
   list.innerHTML = cart.map(function(item, i){
     return '<div class="cart-item">'
       + '<img src="' + esc(item.imagen) + '" alt="">'
-      + '<span class="cart-item-name">' + esc(item.producto) + ' — ' + esc(item.variante) + '</span>'
+      + '<span class="cart-item-name">' + esc(item.producto) + ' — ' + esc(item.variante) + '<br>'
+      +   '<span class="cart-item-price">' + money(item.total) + ' (' + (tipoLabel[item.tipoPrecio] || 'unidad') + ')</span></span>'
       + '<span class="cart-item-qty">x' + item.cantidad + '</span>'
       + '<button class="cart-item-remove" type="button" data-i="' + i + '">✕</button>'
       + '</div>';
   }).join('');
+  var grandTotal = cart.reduce(function(sum, item){ return sum + item.total; }, 0);
+  totalEl.textContent = 'Total del pedido: ' + money(grandTotal);
+  totalEl.style.display = 'block';
 }
 
 document.getElementById('cartList').addEventListener('click', function(e){
@@ -388,7 +454,9 @@ document.getElementById('manualBtn').addEventListener('click', function(){
         cedula: cedula,
         formaEntrega: manualEntrega,
         direccion: direccion,
-        notas: notas
+        notas: notas,
+        precioUnitario: item.precioUnitario,
+        total: item.total
       })
     }).then(function(){
       i++;
@@ -430,7 +498,10 @@ function render(rows){
     return '<div class="pedido-card">'
       + '<div class="pedido-top">'
       +   '<span class="pedido-fecha mono">' + esc(r.fecha) + '</span>'
-      +   '<span class="pedido-qty">x' + esc(r.cantidad) + '</span>'
+      +   '<span style="display:flex;gap:6px;">'
+      +     '<span class="pedido-qty">x' + esc(r.cantidad) + '</span>'
+      +     (r.total ? '<span class="pedido-total">' + money(r.total) + '</span>' : '')
+      +   '</span>'
       + '</div>'
       + '<div class="pedido-producto">' + esc(r.producto) + ' — ' + esc(r.variante) + '</div>'
       + '<div class="pedido-grid" style="margin-top:10px;">'
