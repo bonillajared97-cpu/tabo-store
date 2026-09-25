@@ -77,15 +77,16 @@
     .pedido-grid{grid-template-columns:1fr;}
   }
 
-  .stock-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:28px;}
+  .stock-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px;margin-bottom:28px;}
   .stock-item{
     background:var(--surface);border:1px solid var(--border);border-radius:10px;
-    padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px;
+    padding:7px;text-align:center;font-size:11.5px;
   }
+  .stock-item img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:7px;margin-bottom:5px;}
   .stock-item.low{border-color:var(--gold);}
   .stock-item.out{opacity:.55;}
-  .stock-name{font-size:12.5px;}
-  .stock-num{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;color:var(--accent);}
+  .stock-name{font-size:12px;margin-bottom:2px;}
+  .stock-num{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--accent);}
   .stock-item.out .stock-num{color:var(--muted);}
 
   .manual-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:28px;}
@@ -258,8 +259,9 @@ function renderStock(rows){
     var stock = parseInt(r.stock, 10) || 0;
     var cls = stock === 0 ? 'out' : (stock <= 2 ? 'low' : '');
     return '<div class="stock-item ' + cls + '">'
-      + '<span class="stock-name">' + esc(r.variante) + '</span>'
-      + '<span class="stock-num">' + (stock === 0 ? 'Agotado' : stock) + '</span>'
+      + '<img src="' + esc(r.imagen) + '" alt="">'
+      + '<div class="stock-name">' + esc(r.variante) + '</div>'
+      + '<div class="stock-num">' + (stock === 0 ? 'Agotado' : stock) + '</div>'
       + '</div>';
   }).join('');
   document.getElementById('stockGrid').innerHTML = html;
