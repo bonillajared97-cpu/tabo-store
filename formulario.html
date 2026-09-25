@@ -205,6 +205,7 @@ function parseCSV(text){
   });
 }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function generarId(){ return Date.now().toString(36) + Math.random().toString(36).substr(2,6); }
 
 fetch(CSV_URL, {cache:"no-store"})
   .then(function(r){ return r.text(); })
@@ -446,7 +447,9 @@ document.getElementById('buildBtn').addEventListener('click', function(){
         direccion: addressLine,
         notas: notes || '',
         precioUnitario: item.precioUnitario,
-        total: item.total
+        total: item.total,
+        id: generarId(),
+        estado: 'Pendiente'
       })
     }).then(function(){ i++; sendNext(); }).catch(function(){});
   }
