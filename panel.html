@@ -87,6 +87,21 @@
   .stock-name{font-size:12.5px;}
   .stock-num{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;color:var(--accent);}
   .stock-item.out .stock-num{color:var(--muted);}
+
+  .manual-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:28px;}
+  .manual-card label{display:block;font-size:12.5px;color:var(--muted);margin:0 0 6px;}
+  .manual-card select,.manual-card input{
+    width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;
+    background:var(--bg);color:var(--ink);font-size:14px;font-family:inherit;margin-bottom:12px;
+  }
+  .manual-row{display:flex;align-items:center;gap:12px;margin:2px 0 14px;}
+  .qty-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--ink);font-size:17px;cursor:pointer;}
+  .qty-val{font-family:'IBM Plex Mono',monospace;font-size:15px;min-width:20px;text-align:center;}
+  .manual-btn{
+    width:100%;padding:13px;border:none;border-radius:11px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:14px;cursor:pointer;
+  }
+  .manual-hint{font-size:12px;color:var(--muted);margin-top:10px;}
 </style>
 </head>
 <body>
@@ -99,6 +114,24 @@
 </header>
 
 <main>
+  <h2 class="section">Registrar venta manual</h2>
+  <div class="manual-card">
+    <label>Producto / variante</label>
+    <select id="manualVariant"><option value="">Cargando...</option></select>
+    <label>Cantidad</label>
+    <div class="manual-row">
+      <button class="qty-btn" type="button" id="manualQtyMinus">−</button>
+      <span class="qty-val mono" id="manualQtyVal">1</span>
+      <button class="qty-btn" type="button" id="manualQtyPlus">+</button>
+    </div>
+    <label>Cliente (opcional)</label>
+    <input id="manualNombre" placeholder="Ej. Venta en el taller">
+    <label>Notas (opcional)</label>
+    <input id="manualNotas" placeholder="Ej. Pagó en efectivo">
+    <button class="manual-btn" type="button" id="manualBtn">Registrar venta</button>
+    <div class="manual-hint" id="manualHint"></div>
+  </div>
+
   <div class="stats">
     <div class="stat-tile">
       <div class="stat-num mono" id="statTotal">–</div>
@@ -127,7 +160,10 @@
 <script>
 var CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRObh23AELq2-BNj7mOJQc_5FzQWTuVtHSuod2R0KP_egjU0CSTdY0G_6DgUH0xoCYI6orcAOMJo9iI/pub?gid=1780170729&single=true&output=csv";
 var INVENTARIO_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRObh23AELq2-BNj7mOJQc_5FzQWTuVtHSuod2R0KP_egjU0CSTdY0G_6DgUH0xoCYI6orcAOMJo9iI/pub?gid=0&single=true&output=csv";
+var BACKEND_URL = "https://script.google.com/macros/s/AKfycbxPsa_IDV7JwbsK7udjEq7sxFS2mkXyIfvC00mdxB8AuOOmh3DhX999e-WTfiafrj6Z/exec";
 var WHATSAPP_NUMBER_DEFAULT = "593979805503";
+var manualQty = 1;
+var inventarioRows = [];
 
 function parseCSV(text){
   var lines = text.replace(/\r/g,"").split("\n").filter(function(l){ return l.trim().length; });
@@ -160,8 +196,9 @@ fetch(CSV_URL, {cache:"no-store"})
 fetch(INVENTARIO_CSV_URL, {cache:"no-store"})
   .then(function(r){ return r.text(); })
   .then(function(text){
-    var rows = parseCSV(text);
-    renderStock(rows);
+    inventarioRows = parseCSV(text);
+    renderStock(inventarioRows);
+    renderManualSelect(inventarioRows);
   })
   .catch(function(err){
     document.getElementById('stockStatus').textContent = "No se pudo cargar el inventario.";
@@ -180,6 +217,65 @@ function renderStock(rows){
   }).join('');
   document.getElementById('stockGrid').innerHTML = html;
 }
+
+function renderManualSelect(rows){
+  var select = document.getElementById('manualVariant');
+  select.innerHTML = rows.map(function(r, i){
+    var stock = parseInt(r.stock, 10) || 0;
+    return '<option value="' + i + '">' + esc(r.producto) + ' — ' + esc(r.variante) + ' (' + stock + ' disp.)</option>';
+  }).join('');
+}
+
+document.getElementById('manualQtyMinus').addEventListener('click', function(){
+  if(manualQty > 1) manualQty--;
+  document.getElementById('manualQtyVal').textContent = manualQty;
+});
+document.getElementById('manualQtyPlus').addEventListener('click', function(){
+  manualQty++;
+  document.getElementById('manualQtyVal').textContent = manualQty;
+});
+
+document.getElementById('manualBtn').addEventListener('click', function(){
+  var idx = document.getElementById('manualVariant').value;
+  if(idx === ''){ alert('Elige un producto primero.'); return; }
+  var row = inventarioRows[idx];
+  var nombre = document.getElementById('manualNombre').value.trim() || 'Venta directa';
+  var notas = document.getElementById('manualNotas').value.trim();
+  var btn = document.getElementById('manualBtn');
+  var hint = document.getElementById('manualHint');
+
+  btn.disabled = true;
+  btn.textContent = 'Registrando...';
+
+  fetch(BACKEND_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({
+      producto: row.producto,
+      variante: row.variante,
+      cantidad: manualQty,
+      nombre: nombre,
+      telefono: '',
+      cedula: '',
+      formaEntrega: '',
+      direccion: '',
+      notas: notas
+    })
+  }).then(function(){
+    hint.textContent = 'Venta registrada. El stock y el panel se actualizan en unos segundos (recarga si no lo ves aún).';
+    manualQty = 1;
+    document.getElementById('manualQtyVal').textContent = 1;
+    document.getElementById('manualNombre').value = '';
+    document.getElementById('manualNotas').value = '';
+    btn.disabled = false;
+    btn.textContent = 'Registrar venta';
+  }).catch(function(){
+    hint.textContent = 'Hubo un problema. Intenta de nuevo.';
+    btn.disabled = false;
+    btn.textContent = 'Registrar venta';
+  });
+});
 
 function render(rows){
   document.getElementById('status').remove();
