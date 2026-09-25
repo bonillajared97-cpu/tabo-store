@@ -76,9 +76,11 @@
   .cart-item-qty{font-family:'IBM Plex Mono',monospace;color:var(--accent);}
   .cart-item-remove{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:0 4px;}
 
-  .toggle-row{display:flex;gap:8px;margin-bottom:14px;}
-  .toggle-btn{flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--ink);font-size:13px;cursor:pointer;}
+  .toggle-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+  .toggle-btn{flex:1;min-width:90px;padding:10px 6px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--ink);font-size:12px;cursor:pointer;}
   .toggle-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .cart-item-price{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);}
+  .cart-total{font-size:13px;color:var(--ink);font-weight:600;margin-top:4px;}
 
   .primary-btn{
     width:100%;padding:15px;border:none;border-radius:12px;
@@ -109,6 +111,12 @@
 
   <h2 class="section">¿Qué vas a comprar?</h2>
   <div class="card">
+    <label>Tipo de precio</label>
+    <div class="toggle-row">
+      <button class="toggle-btn active" id="btnPrecioUnidad" type="button">Unidad — $17.99</button>
+      <button class="toggle-btn" id="btnPrecioMayor" type="button">Mayor — $13.00</button>
+      <button class="toggle-btn" id="btnPrecioCombo" type="button">Combo 2x — $32.00</button>
+    </div>
     <label>Producto</label>
     <select id="productSelect"><option value="">Cargando productos...</option></select>
     <div id="variantWrap" style="display:none;">
@@ -161,11 +169,23 @@
 var CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRObh23AELq2-BNj7mOJQc_5FzQWTuVtHSuod2R0KP_egjU0CSTdY0G_6DgUH0xoCYI6orcAOMJo9iI/pub?gid=0&single=true&output=csv";
 var BACKEND_URL = "https://script.google.com/macros/s/AKfycbxPsa_IDV7JwbsK7udjEq7sxFS2mkXyIfvC00mdxB8AuOOmh3DhX999e-WTfiafrj6Z/exec";
 var WHATSAPP_NUMBER = "593979805503";
+var PRECIO_UNIDAD = 17.99;
+var PRECIO_MAYOR = 13.00;
+var PRECIO_COMBO = 32.00;
 
 var PRODUCTS = {};
 var tileQty = {};
 var cart = [];
 var deliveryMethod = "domicilio";
+var precioTipo = "unidad";
+
+function calcPrecio(tipo, cantidad){
+  if(tipo === 'mayor') return { unitario: PRECIO_MAYOR, total: Math.round(cantidad * PRECIO_MAYOR * 100) / 100 };
+  if(tipo === 'combo') return { unitario: PRECIO_COMBO / 2, total: Math.round((cantidad / 2) * PRECIO_COMBO * 100) / 100 };
+  return { unitario: PRECIO_UNIDAD, total: Math.round(cantidad * PRECIO_UNIDAD * 100) / 100 };
+}
+function tipoStep(tipo){ return tipo === 'combo' ? 2 : 1; }
+function money(n){ return '$' + Number(n).toFixed(2); }
 
 function parseCSV(text){
   var lines = text.replace(/\r/g,"").split("\n").filter(function(l){ return l.trim().length; });
@@ -202,11 +222,12 @@ document.getElementById('productSelect').addEventListener('change', function(){
   if(!pname){ wrap.style.display = 'none'; return; }
   wrap.style.display = 'block';
   var variants = PRODUCTS[pname];
+  var step = tipoStep(precioTipo);
   tileQty = {};
   document.getElementById('variantGrid').innerHTML = variants.map(function(v, i){
     var stock = parseInt(v.stock, 10) || 0;
     var out = stock === 0;
-    tileQty[i] = 1;
+    tileQty[i] = step;
     return '<div class="variant'+(out?' disabled':'')+'" data-idx="'+i+'" data-product="'+esc(pname)+'">'
       + '<img src="'+esc(v.imagen)+'" alt="">'
       + '<div>'+esc(v.variante)+'</div>'
@@ -214,7 +235,7 @@ document.getElementById('productSelect').addEventListener('change', function(){
       + (out ? '' :
           '<div class="v-qty-row">'
           + '<button class="v-qty-btn" type="button" data-action="minus" data-idx="'+i+'">−</button>'
-          + '<span class="v-qty-val" id="vqty-'+i+'">1</span>'
+          + '<span class="v-qty-val" id="vqty-'+i+'">'+step+'</span>'
           + '<button class="v-qty-btn" type="button" data-action="plus" data-idx="'+i+'">+</button>'
           + '</div>'
           + '<button class="v-add-btn" type="button" data-action="add" data-idx="'+i+'">Agregar</button>')
@@ -230,24 +251,59 @@ document.getElementById('variantGrid').addEventListener('click', function(e){
   var row = PRODUCTS[pname][idx];
   var stock = parseInt(row.stock, 10) || 0;
   var action = btn.dataset.action;
+  var step = tipoStep(precioTipo);
 
   if(action === 'minus'){
-    if(tileQty[idx] > 1) tileQty[idx]--;
+    if(tileQty[idx] > step) tileQty[idx] -= step;
     document.getElementById('vqty-'+idx).textContent = tileQty[idx];
   } else if(action === 'plus'){
-    if(tileQty[idx] < stock) tileQty[idx]++;
+    if(tileQty[idx] + step <= stock) tileQty[idx] += step;
     document.getElementById('vqty-'+idx).textContent = tileQty[idx];
   } else if(action === 'add'){
+    if(precioTipo === 'combo' && tileQty[idx] < 2){ alert('El combo es de mínimo 2 unidades.'); return; }
+    var precio = calcPrecio(precioTipo, tileQty[idx]);
     cart.push({
       producto: row.producto,
       variante: row.variante,
       imagen: row.imagen,
-      cantidad: tileQty[idx]
+      cantidad: tileQty[idx],
+      precioUnitario: precio.unitario,
+      total: precio.total,
+      tipoPrecio: precioTipo
     });
-    tileQty[idx] = 1;
-    document.getElementById('vqty-'+idx).textContent = 1;
+    tileQty[idx] = step;
+    document.getElementById('vqty-'+idx).textContent = step;
     renderCart();
   }
+});
+
+function setPrecioTipo(tipo){
+  precioTipo = tipo;
+  var step = tipoStep(tipo);
+  Object.keys(tileQty).forEach(function(idx){
+    tileQty[idx] = step;
+    var el = document.getElementById('vqty-'+idx);
+    if(el) el.textContent = step;
+  });
+}
+
+document.getElementById('btnPrecioUnidad').addEventListener('click', function(){
+  setPrecioTipo('unidad');
+  this.classList.add('active');
+  document.getElementById('btnPrecioMayor').classList.remove('active');
+  document.getElementById('btnPrecioCombo').classList.remove('active');
+});
+document.getElementById('btnPrecioMayor').addEventListener('click', function(){
+  setPrecioTipo('mayor');
+  this.classList.add('active');
+  document.getElementById('btnPrecioUnidad').classList.remove('active');
+  document.getElementById('btnPrecioCombo').classList.remove('active');
+});
+document.getElementById('btnPrecioCombo').addEventListener('click', function(){
+  setPrecioTipo('combo');
+  this.classList.add('active');
+  document.getElementById('btnPrecioUnidad').classList.remove('active');
+  document.getElementById('btnPrecioMayor').classList.remove('active');
 });
 
 function renderCart(){
@@ -259,14 +315,18 @@ function renderCart(){
     return;
   }
   empty.style.display = 'none';
+  var tipoLabel = { unidad: 'unidad', mayor: 'mayor', combo: 'combo' };
   list.innerHTML = cart.map(function(item, i){
     return '<div class="cart-item">'
       + '<img src="' + esc(item.imagen) + '" alt="">'
-      + '<span class="cart-item-name">' + esc(item.producto) + ' — ' + esc(item.variante) + '</span>'
+      + '<span class="cart-item-name">' + esc(item.producto) + ' — ' + esc(item.variante) + '<br>'
+      +   '<span class="cart-item-price">' + money(item.total) + ' (' + (tipoLabel[item.tipoPrecio] || 'unidad') + ')</span></span>'
       + '<span class="cart-item-qty">x' + item.cantidad + '</span>'
       + '<button class="cart-item-remove" type="button" data-i="' + i + '">✕</button>'
       + '</div>';
   }).join('');
+  var grandTotal = cart.reduce(function(sum, item){ return sum + item.total; }, 0);
+  list.innerHTML += '<div class="cart-total">Total: ' + money(grandTotal) + '</div>';
 }
 
 document.getElementById('cartList').addEventListener('click', function(e){
@@ -313,13 +373,19 @@ document.getElementById('buildBtn').addEventListener('click', function(){
     addressLine = office;
   }
 
+  var tipoLabelMsg = { unidad: 'por unidad', mayor: 'al por mayor', combo: 'combo 2x' };
   var lines = ['Hola TABO STORE! Quiero hacer este pedido:', ''];
+  var grandTotal = 0;
   cart.forEach(function(item, i){
     lines.push('Producto ' + (i+1) + ': ' + item.producto);
     lines.push('Color ' + (i+1) + ': ' + item.variante);
-    lines.push('Cantidad ' + (i+1) + ': ' + item.cantidad);
+    lines.push('Cantidad ' + (i+1) + ': ' + item.cantidad + ' (' + (tipoLabelMsg[item.tipoPrecio] || 'por unidad') + ')');
+    lines.push('Subtotal ' + (i+1) + ': $' + item.total.toFixed(2));
     lines.push('');
+    grandTotal += item.total;
   });
+  lines.push('Total del pedido: $' + grandTotal.toFixed(2));
+  lines.push('');
   lines.push('Nombre: ' + name);
   lines.push('Teléfono: ' + phone);
   lines.push('Cédula: ' + cedula);
@@ -350,7 +416,9 @@ document.getElementById('buildBtn').addEventListener('click', function(){
         cedula: cedula,
         formaEntrega: deliveryLine,
         direccion: addressLine,
-        notas: notes || ''
+        notas: notes || '',
+        precioUnitario: item.precioUnitario,
+        total: item.total
       })
     }).then(function(){ i++; sendNext(); }).catch(function(){});
   }
