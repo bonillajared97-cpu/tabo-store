@@ -143,6 +143,7 @@
     <div class="toggle-row">
       <button class="toggle-btn active" id="btnDomicilio" type="button">A domicilio</button>
       <button class="toggle-btn" id="btnServientrega" type="button">Oficina Servientrega</button>
+      <button class="toggle-btn" id="btnMotorista" type="button">Por motorista</button>
     </div>
     <div id="domicilioFields">
       <label>Ciudad *</label>
@@ -153,6 +154,10 @@
     <div id="servientregaFields" style="display:none;">
       <label>Oficina Servientrega (ciudad/dirección) *</label>
       <input id="fOffice" placeholder="Ej. Oficina Servientrega, Av. Principal, Quito">
+    </div>
+    <div id="motoristaFields" style="display:none;">
+      <label>Dirección para el motorista *</label>
+      <input id="fMotoAddress" placeholder="Ciudad y dirección de entrega">
     </div>
     <label>Notas (opcional)</label>
     <input id="fNotes" placeholder="Alguna indicación extra">
@@ -340,15 +345,28 @@ document.getElementById('btnDomicilio').addEventListener('click', function(){
   deliveryMethod = 'domicilio';
   this.classList.add('active');
   document.getElementById('btnServientrega').classList.remove('active');
+  document.getElementById('btnMotorista').classList.remove('active');
   document.getElementById('domicilioFields').style.display = 'block';
   document.getElementById('servientregaFields').style.display = 'none';
+  document.getElementById('motoristaFields').style.display = 'none';
 });
 document.getElementById('btnServientrega').addEventListener('click', function(){
   deliveryMethod = 'servientrega';
   this.classList.add('active');
   document.getElementById('btnDomicilio').classList.remove('active');
+  document.getElementById('btnMotorista').classList.remove('active');
   document.getElementById('domicilioFields').style.display = 'none';
   document.getElementById('servientregaFields').style.display = 'block';
+  document.getElementById('motoristaFields').style.display = 'none';
+});
+document.getElementById('btnMotorista').addEventListener('click', function(){
+  deliveryMethod = 'motorista';
+  this.classList.add('active');
+  document.getElementById('btnDomicilio').classList.remove('active');
+  document.getElementById('btnServientrega').classList.remove('active');
+  document.getElementById('domicilioFields').style.display = 'none';
+  document.getElementById('servientregaFields').style.display = 'none';
+  document.getElementById('motoristaFields').style.display = 'block';
 });
 
 document.getElementById('buildBtn').addEventListener('click', function(){
@@ -366,11 +384,16 @@ document.getElementById('buildBtn').addEventListener('click', function(){
     if(!city || !address){ alert('Completa ciudad y dirección.'); return; }
     deliveryLine = 'A domicilio';
     addressLine = city + ' - ' + address;
-  } else {
+  } else if(deliveryMethod === 'servientrega'){
     var office = document.getElementById('fOffice').value.trim();
     if(!office){ alert('Completa la oficina Servientrega.'); return; }
     deliveryLine = 'Oficina Servientrega';
     addressLine = office;
+  } else {
+    var motoAddress = document.getElementById('fMotoAddress').value.trim();
+    if(!motoAddress){ alert('Completa la dirección para el motorista.'); return; }
+    deliveryLine = 'Por motorista';
+    addressLine = motoAddress;
   }
 
   var tipoLabelMsg = { unidad: 'por unidad', mayor: 'al por mayor', combo: 'combo 2x' };
