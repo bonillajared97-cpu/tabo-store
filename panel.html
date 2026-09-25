@@ -71,7 +71,24 @@
     display:inline-flex;align-items:center;gap:6px;
     background:#25D366;color:#06210F;font-weight:700;text-decoration:none;
     padding:8px 14px;border-radius:9px;font-size:13px;
+    margin-right:8px;
   }
+
+  .estado-badge{
+    font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;
+    padding:2px 8px;border-radius:6px;text-transform:uppercase;letter-spacing:.03em;
+  }
+  .estado-pendiente{background:rgba(212,175,55,.18);color:var(--gold);}
+  .estado-enviado{background:rgba(14,122,85,.15);color:var(--accent);}
+  .estado-entregado{background:var(--accent);color:#fff;}
+
+  .estado-row{display:flex;gap:6px;margin:10px 0 12px;flex-wrap:wrap;}
+  .estado-btn{
+    flex:1;min-width:80px;padding:7px 4px;border-radius:8px;border:1px solid var(--border);
+    background:var(--bg);color:var(--ink);font-size:11px;cursor:pointer;
+  }
+  .estado-btn.current{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .actions-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;}
 
   @media (max-width:480px){
     .pedido-grid{grid-template-columns:1fr;}
@@ -250,6 +267,7 @@ function parseCSV(text){
   });
 }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function generarId(){ return Date.now().toString(36) + Math.random().toString(36).substr(2,6); }
 
 function todayStr(){
   var d = new Date();
@@ -503,7 +521,9 @@ document.getElementById('manualBtn').addEventListener('click', function(){
         direccion: direccion,
         notas: notas,
         precioUnitario: item.precioUnitario,
-        total: item.total
+        total: item.total,
+        id: generarId(),
+        estado: 'Pendiente'
       })
     }).then(function(){
       i++;
@@ -541,11 +561,19 @@ function render(rows){
     var phoneDigits = (r.telefono||'').replace(/\D/g,'');
     var waNumber = phoneDigits ? phoneDigits : WHATSAPP_NUMBER_DEFAULT;
     var waLink = 'https://wa.me/' + waNumber;
+    var estado = r.estado || 'Pendiente';
+    var estadoClass = 'estado-' + estado.toLowerCase();
+    var hasId = !!r.id;
+
+    var estadoBtns = ['Pendiente', 'Enviado', 'Entregado'].map(function(e){
+      return '<button class="estado-btn' + (e === estado ? ' current' : '') + '" type="button" data-id="' + esc(r.id) + '" data-estado="' + e + '">' + e + '</button>';
+    }).join('');
 
     return '<div class="pedido-card">'
       + '<div class="pedido-top">'
       +   '<span class="pedido-fecha mono">' + esc(r.fecha) + '</span>'
-      +   '<span style="display:flex;gap:6px;">'
+      +   '<span style="display:flex;gap:6px;align-items:center;">'
+      +     '<span class="estado-badge ' + estadoClass + '">' + esc(estado) + '</span>'
       +     '<span class="pedido-qty">x' + esc(r.cantidad) + '</span>'
       +     (r.total ? '<span class="pedido-total">' + money(r.total) + '</span>' : '')
       +   '</span>'
@@ -559,11 +587,35 @@ function render(rows){
       +   '<div style="grid-column:1/-1;"><div class="field-label">Dirección</div><div class="field-value">' + esc(r.direccion) + '</div></div>'
       +   (r.notas ? '<div style="grid-column:1/-1;"><div class="field-label">Notas</div><div class="field-value">' + esc(r.notas) + '</div></div>' : '')
       + '</div>'
-      + '<a class="wa-link" href="' + waLink + '" target="_blank" rel="noopener">💬 Escribirle por WhatsApp</a>'
+      + (hasId ? '<div class="estado-row">' + estadoBtns + '</div>' : '<div class="manual-hint">Pedido antiguo, sin estado editable.</div>')
+      + '<div class="actions-row">'
+      +   '<a class="wa-link" href="' + waLink + '" target="_blank" rel="noopener">💬 Escribirle por WhatsApp</a>'
+      + '</div>'
       + '</div>';
   }).join('');
 
   document.getElementById('pedidos').innerHTML = html;
+
+  document.querySelectorAll('.estado-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var id = this.dataset.id;
+      var estado = this.dataset.estado;
+      var card = this.closest('.pedido-card');
+      var allBtns = card.querySelectorAll('.estado-btn');
+      allBtns.forEach(function(b){ b.classList.remove('current'); });
+      this.classList.add('current');
+      var badge = card.querySelector('.estado-badge');
+      badge.textContent = estado;
+      badge.className = 'estado-badge estado-' + estado.toLowerCase();
+
+      fetch(BACKEND_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ accion: 'actualizarEstado', id: id, estado: estado })
+      }).catch(function(){});
+    });
+  });
 }
 </script>
 </body>
