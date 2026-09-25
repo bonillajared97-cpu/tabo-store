@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel de Pedidos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --gold:#D4AF37;
+    --accent:#0E7A55;
+    --bg:#FAF9F6;
+    --surface:#FFFFFF;
+    --surface-2:#F1EFE8;
+    --ink:#1A1712;
+    --muted:#6B6459;
+    --border:rgba(26,23,18,.12);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --accent:#38B884;
+      --bg:#14120F;
+      --surface:#1E1B17;
+      --surface-2:#262219;
+      --ink:#F2EEE4;
+      --muted:#A69C8C;
+      --border:rgba(255,255,255,.12);
+      color-scheme: dark;
+    }
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif;}
+  h1,h2{font-family:'Manrope',sans-serif;margin:0;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+
+  header.top{background:#0B0A08;border-bottom:2px solid var(--gold);padding:16px;display:flex;align-items:center;gap:10px;}
+  .logo-dot{width:30px;height:30px;border-radius:8px;background:var(--gold);display:flex;align-items:center;justify-content:center;font-weight:800;color:#0B0A08;font-family:'Manrope',sans-serif;}
+  header.top .word{color:#fff;font-weight:800;font-size:17px;letter-spacing:.02em;}
+  header.top .sub{color:var(--gold);font-size:13px;margin-left:2px;}
+  .refresh-btn{
+    margin-left:auto;
+    background:transparent;border:1px solid var(--gold);color:var(--gold);
+    border-radius:8px;padding:6px 12px;font-size:12.5px;cursor:pointer;
+    font-family:'IBM Plex Mono',monospace;
+  }
+
+  main{max-width:760px;margin:0 auto;padding:20px 16px 60px;}
+
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:24px;}
+  .stat-tile{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 12px;text-align:center;}
+  .stat-num{font-family:'IBM Plex Mono',monospace;font-size:26px;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums;}
+  .stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-top:4px;}
+
+  h2.section{font-size:13px;color:var(--accent);text-transform:uppercase;letter-spacing:.04em;margin:0 0 12px;}
+
+  #status{color:var(--muted);font-size:14px;padding:20px 0;}
+  #empty{display:none;color:var(--muted);font-size:14px;background:var(--surface);border:1px dashed var(--border);border-radius:14px;padding:24px;text-align:center;}
+
+  .pedido-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px;}
+  .pedido-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:10px;}
+  .pedido-fecha{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);}
+  .pedido-producto{font-family:'Manrope',sans-serif;font-weight:800;font-size:15px;}
+  .pedido-qty{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--accent);background:var(--surface-2);border-radius:6px;padding:2px 8px;}
+
+  .pedido-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;font-size:13px;margin-bottom:12px;}
+  .field-label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.03em;}
+  .field-value{margin-top:1px;}
+
+  .wa-link{
+    display:inline-flex;align-items:center;gap:6px;
+    background:#25D366;color:#06210F;font-weight:700;text-decoration:none;
+    padding:8px 14px;border-radius:9px;font-size:13px;
+  }
+
+  @media (max-width:480px){
+    .pedido-grid{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="logo-dot">T</div>
+  <span class="word">TABO</span>
+  <span class="sub">Panel de pedidos</span>
+  <button class="refresh-btn" onclick="location.reload()">↻ Actualizar</button>
+</header>
+
+<main>
+  <div class="stats">
+    <div class="stat-tile">
+      <div class="stat-num mono" id="statTotal">–</div>
+      <div class="stat-label">Pedidos totales</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-num mono" id="statHoy">–</div>
+      <div class="stat-label">Pedidos hoy</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-num mono" id="statUnidades">–</div>
+      <div class="stat-label">Unidades pedidas</div>
+    </div>
+  </div>
+
+  <h2 class="section">Pedidos recientes</h2>
+  <div id="status">Cargando pedidos...</div>
+  <div id="empty">Todavía no hay pedidos registrados. Apenas un cliente compre por el Formulario, aparecerán aquí.</div>
+  <div id="pedidos"></div>
+</main>
+
+<script>
+var CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRObh23AELq2-BNj7mOJQc_5FzQWTuVtHSuod2R0KP_egjU0CSTdY0G_6DgUH0xoCYI6orcAOMJo9iI/pub?gid=1780170729&single=true&output=csv";
+var WHATSAPP_NUMBER_DEFAULT = "593979805503";
+
+function parseCSV(text){
+  var lines = text.replace(/\r/g,"").split("\n").filter(function(l){ return l.trim().length; });
+  var headers = lines[0].split(",").map(function(h){ return h.trim(); });
+  return lines.slice(1).map(function(line){
+    var cells = line.split(",");
+    var row = {};
+    headers.forEach(function(h, i){ row[h] = (cells[i]||"").trim(); });
+    return row;
+  });
+}
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+function todayStr(){
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+fetch(CSV_URL, {cache:"no-store"})
+  .then(function(r){ return r.text(); })
+  .then(function(text){
+    var rows = parseCSV(text).filter(function(r){ return r.fecha; });
+    render(rows);
+  })
+  .catch(function(err){
+    document.getElementById('status').textContent = "No se pudieron cargar los pedidos. Intenta de nuevo en un momento.";
+    console.error(err);
+  });
+
+function render(rows){
+  document.getElementById('status').remove();
+
+  var total = rows.length;
+  var today = todayStr();
+  var hoy = rows.filter(function(r){ return (r.fecha||'').indexOf(today) === 0; }).length;
+  var unidades = rows.reduce(function(sum, r){ return sum + (parseInt(r.cantidad,10) || 0); }, 0);
+
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statHoy').textContent = hoy;
+  document.getElementById('statUnidades').textContent = unidades;
+
+  if(total === 0){
+    document.getElementById('empty').style.display = 'block';
+    return;
+  }
+
+  rows.reverse();
+
+  var html = rows.map(function(r){
+    var phoneDigits = (r.telefono||'').replace(/\D/g,'');
+    var waNumber = phoneDigits ? phoneDigits : WHATSAPP_NUMBER_DEFAULT;
+    var waLink = 'https://wa.me/' + waNumber;
+
+    return '<div class="pedido-card">'
+      + '<div class="pedido-top">'
+      +   '<span class="pedido-fecha mono">' + esc(r.fecha) + '</span>'
+      +   '<span class="pedido-qty">x' + esc(r.cantidad) + '</span>'
+      + '</div>'
+      + '<div class="pedido-producto">' + esc(r.producto) + ' — ' + esc(r.variante) + '</div>'
+      + '<div class="pedido-grid" style="margin-top:10px;">'
+      +   '<div><div class="field-label">Cliente</div><div class="field-value">' + esc(r.nombre) + '</div></div>'
+      +   '<div><div class="field-label">Teléfono</div><div class="field-value">' + esc(r.telefono) + '</div></div>'
+      +   '<div><div class="field-label">Cédula</div><div class="field-value">' + esc(r.cedula) + '</div></div>'
+      +   '<div><div class="field-label">Entrega</div><div class="field-value">' + esc(r.formaEntrega) + '</div></div>'
+      +   '<div style="grid-column:1/-1;"><div class="field-label">Dirección</div><div class="field-value">' + esc(r.direccion) + '</div></div>'
+      +   (r.notas ? '<div style="grid-column:1/-1;"><div class="field-label">Notas</div><div class="field-value">' + esc(r.notas) + '</div></div>' : '')
+      + '</div>'
+      + '<a class="wa-link" href="' + waLink + '" target="_blank" rel="noopener">💬 Escribirle por WhatsApp</a>'
+      + '</div>';
+  }).join('');
+
+  document.getElementById('pedidos').innerHTML = html;
+}
+</script>
+</body>
+</html>
