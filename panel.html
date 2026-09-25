@@ -123,6 +123,7 @@
   .manual-toggle-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
   .manual-toggle-btn{flex:1;min-width:90px;padding:9px 6px;border-radius:9px;border:1px solid var(--border);background:var(--bg);color:var(--ink);font-size:11.5px;cursor:pointer;}
   .manual-toggle-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .toggle-sub{display:block;font-size:9.5px;opacity:.8;margin-top:2px;font-weight:400;}
   .manual-btn{
     width:100%;padding:13px;border:none;border-radius:11px;
     background:var(--accent);color:#fff;font-weight:700;font-size:14px;cursor:pointer;
@@ -149,7 +150,7 @@
     <label>Tipo de precio</label>
     <div class="manual-toggle-row">
       <button class="manual-toggle-btn active" type="button" id="manualBtnUnidad">Unidad — $17.99</button>
-      <button class="manual-toggle-btn" type="button" id="manualBtnMayor">Mayor — $13.00</button>
+      <button class="manual-toggle-btn" type="button" id="manualBtnMayor">Mayor — $13.00<span class="toggle-sub">a partir de 6 piezas</span></button>
       <button class="manual-toggle-btn" type="button" id="manualBtnCombo">Combo 2x — $32.00</button>
     </div>
 
@@ -236,6 +237,7 @@ function calcPrecio(tipo, cantidad){
   return { unitario: PRECIO_UNIDAD, total: Math.round(cantidad * PRECIO_UNIDAD * 100) / 100 };
 }
 function tipoStep(tipo){ return tipo === 'combo' ? 2 : 1; }
+function tipoMin(tipo){ if(tipo === 'combo') return 2; if(tipo === 'mayor') return 6; return 1; }
 
 function parseCSV(text){
   var lines = text.replace(/\r/g,"").split("\n").filter(function(l){ return l.trim().length; });
@@ -294,10 +296,11 @@ function renderStock(rows){
 function renderManualSelect(rows){
   document.getElementById('manualStatus').remove();
   manualTileQty = {};
+  var min = tipoMin(manualPrecioTipo);
   var html = rows.map(function(r, i){
     var stock = parseInt(r.stock, 10) || 0;
     var out = stock === 0;
-    manualTileQty[i] = 1;
+    manualTileQty[i] = stock > 0 ? Math.min(min, stock) : min;
     return '<div class="manual-variant' + (out?' disabled':'') + '" data-idx="' + i + '">'
       + '<img src="' + esc(r.imagen) + '" alt="">'
       + '<div>' + esc(r.variante) + '</div>'
@@ -305,7 +308,7 @@ function renderManualSelect(rows){
       + (out ? '' :
           '<div class="mv-qty-row">'
           + '<button class="mv-qty-btn" type="button" data-action="minus" data-idx="'+i+'">−</button>'
-          + '<span class="mv-qty-val" id="mvqty-'+i+'">1</span>'
+          + '<span class="mv-qty-val" id="mvqty-'+i+'">'+manualTileQty[i]+'</span>'
           + '<button class="mv-qty-btn" type="button" data-action="plus" data-idx="'+i+'">+</button>'
           + '</div>'
           + '<button class="mv-add-btn" type="button" data-action="add" data-idx="'+i+'">Agregar</button>')
@@ -323,15 +326,16 @@ document.getElementById('manualGrid').addEventListener('click', function(e){
   var action = btn.dataset.action;
 
   var step = tipoStep(manualPrecioTipo);
+  var min = tipoMin(manualPrecioTipo);
 
   if(action === 'minus'){
-    if(manualTileQty[idx] > step) manualTileQty[idx] -= step;
+    if(manualTileQty[idx] > min) manualTileQty[idx] -= step;
     document.getElementById('mvqty-'+idx).textContent = manualTileQty[idx];
   } else if(action === 'plus'){
     if(manualTileQty[idx] + step <= stock) manualTileQty[idx] += step;
     document.getElementById('mvqty-'+idx).textContent = manualTileQty[idx];
   } else if(action === 'add'){
-    if(manualPrecioTipo === 'combo' && manualTileQty[idx] < 2){ alert('El combo es de mínimo 2 unidades.'); return; }
+    if(manualTileQty[idx] < min){ alert('Esta opción es de mínimo ' + min + ' unidades.'); return; }
     var precio = calcPrecio(manualPrecioTipo, manualTileQty[idx]);
     cart.push({
       producto: row.producto,
@@ -342,7 +346,7 @@ document.getElementById('manualGrid').addEventListener('click', function(e){
       total: precio.total,
       tipoPrecio: manualPrecioTipo
     });
-    manualTileQty[idx] = step;
+    manualTileQty[idx] = Math.min(min, stock);
     document.getElementById('mvqty-'+idx).textContent = manualTileQty[idx];
     renderCart();
   }
@@ -350,11 +354,12 @@ document.getElementById('manualGrid').addEventListener('click', function(e){
 
 function setManualPrecioTipo(tipo){
   manualPrecioTipo = tipo;
-  var step = tipoStep(tipo);
+  var min = tipoMin(tipo);
   Object.keys(manualTileQty).forEach(function(idx){
-    manualTileQty[idx] = step;
+    var stock = parseInt(inventarioRows[idx].stock, 10) || 0;
+    manualTileQty[idx] = stock > 0 ? Math.min(min, stock) : min;
     var el = document.getElementById('mvqty-'+idx);
-    if(el) el.textContent = step;
+    if(el) el.textContent = manualTileQty[idx];
   });
 }
 
