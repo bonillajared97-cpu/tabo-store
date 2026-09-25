@@ -142,6 +142,7 @@
 
 <script>
 var CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRObh23AELq2-BNj7mOJQc_5FzQWTuVtHSuod2R0KP_egjU0CSTdY0G_6DgUH0xoCYI6orcAOMJo9iI/pub?gid=0&single=true&output=csv";
+var BACKEND_URL = "https://script.google.com/macros/s/AKfycbxPsa_IDV7JwbsK7udjEq7sxFS2mkXyIfvC00mdxB8AuOOmh3DhX999e-WTfiafrj6Z/exec";
 var WHATSAPP_NUMBER = "593979805503";
 
 var PRODUCTS = {};
@@ -277,6 +278,23 @@ document.getElementById('buildBtn').addEventListener('click', function(){
   var summary = document.getElementById('summary');
   summary.textContent = msg;
   summary.style.display = 'block';
+
+  fetch(BACKEND_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({
+      producto: selectedVariant.producto,
+      variante: selectedVariant.variante,
+      cantidad: qty,
+      nombre: name,
+      telefono: phone,
+      cedula: cedula,
+      formaEntrega: deliveryLine,
+      direccion: addressLine,
+      notas: notes || ''
+    })
+  }).catch(function(){});
 
   var waBtn = document.getElementById('waBtn');
   waBtn.href = 'https://wa.me/' + WHATSAPP_NUMBER + '?text=' + encodeURIComponent(msg);
