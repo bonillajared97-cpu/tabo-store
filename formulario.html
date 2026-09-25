@@ -48,17 +48,33 @@
   }
   select:last-child,input:last-child{margin-bottom:0;}
 
-  .variant-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:8px;margin-bottom:12px;}
-  .variant{border:1px solid var(--border);border-radius:10px;padding:7px;text-align:center;font-size:11px;cursor:pointer;background:var(--bg);}
+  .variant-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin-bottom:12px;}
+  .variant{border:1px solid var(--border);border-radius:10px;padding:7px;text-align:center;font-size:11px;background:var(--bg);}
   .variant img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:7px;margin-bottom:5px;}
-  .variant.selected{border-color:var(--accent);border-width:2px;}
-  .variant.disabled{opacity:.4;cursor:not-allowed;}
-  .vstock{color:var(--accent);}
+  .variant.disabled{opacity:.45;}
+  .vstock{color:var(--accent);margin-bottom:6px;}
   .variant.disabled .vstock{color:var(--muted);}
 
-  .qty-row{display:flex;align-items:center;gap:12px;margin-top:10px;}
-  .qty-btn{width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--ink);font-size:18px;cursor:pointer;}
-  .qty-val{font-family:'IBM Plex Mono',monospace;font-size:16px;min-width:24px;text-align:center;}
+  .v-qty-row{display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:6px;}
+  .v-qty-btn{width:22px;height:22px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--ink);font-size:13px;cursor:pointer;line-height:1;}
+  .v-qty-btn:disabled{opacity:.4;cursor:not-allowed;}
+  .v-qty-val{font-family:'IBM Plex Mono',monospace;font-size:12px;min-width:14px;}
+  .v-add-btn{
+    width:100%;padding:6px;border:none;border-radius:7px;
+    background:var(--accent);color:#fff;font-size:11px;font-weight:600;cursor:pointer;
+  }
+  .v-add-btn:disabled{opacity:.4;cursor:not-allowed;}
+
+  .cart-section{margin-bottom:14px;}
+  .cart-empty{color:var(--muted);font-size:13px;padding:4px 0;}
+  .cart-item{
+    display:flex;align-items:center;gap:10px;
+    background:var(--bg);border-radius:10px;padding:8px 10px;margin-bottom:6px;font-size:13px;
+  }
+  .cart-item img{width:34px;height:34px;object-fit:cover;border-radius:6px;}
+  .cart-item-name{flex:1;}
+  .cart-item-qty{font-family:'IBM Plex Mono',monospace;color:var(--accent);}
+  .cart-item-remove{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:0 4px;}
 
   .toggle-row{display:flex;gap:8px;margin-bottom:14px;}
   .toggle-btn{flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--ink);font-size:13px;cursor:pointer;}
@@ -96,14 +112,15 @@
     <label>Producto</label>
     <select id="productSelect"><option value="">Cargando productos...</option></select>
     <div id="variantWrap" style="display:none;">
-      <label>Color y talla</label>
+      <label>Color y talla — elige cantidad y agrega los que quieras</label>
       <div class="variant-grid" id="variantGrid"></div>
-      <div class="qty-row">
-        <button class="qty-btn" id="qtyMinus" type="button">−</button>
-        <span class="qty-val" id="qtyVal">1</span>
-        <button class="qty-btn" id="qtyPlus" type="button">+</button>
-      </div>
     </div>
+  </div>
+
+  <h2 class="section">Tu pedido</h2>
+  <div class="card cart-section">
+    <div class="cart-empty" id="cartEmpty">Todavía no agregaste nada. Elige una foto arriba y dale "Agregar".</div>
+    <div id="cartList"></div>
   </div>
 
   <h2 class="section">Tus datos de envío</h2>
@@ -133,7 +150,7 @@
     <input id="fNotes" placeholder="Alguna indicación extra">
   </div>
 
-  <button class="primary-btn" id="buildBtn" type="button">Generar mensaje de pedido</button>
+  <button class="primary-btn" id="buildBtn" type="button">Enviar pedido</button>
 
   <div class="summary" id="summary"></div>
   <a class="wa-btn" id="waBtn" style="display:none;" target="_blank" rel="noopener">💬 Enviar por WhatsApp</a>
@@ -146,8 +163,8 @@ var BACKEND_URL = "https://script.google.com/macros/s/AKfycbxPsa_IDV7JwbsK7udjEq
 var WHATSAPP_NUMBER = "593979805503";
 
 var PRODUCTS = {};
-var selectedVariant = null;
-var qty = 1;
+var tileQty = {};
+var cart = [];
 var deliveryMethod = "domicilio";
 
 function parseCSV(text){
@@ -181,45 +198,82 @@ fetch(CSV_URL, {cache:"no-store"})
 
 document.getElementById('productSelect').addEventListener('change', function(){
   var pname = this.value;
-  selectedVariant = null;
-  qty = 1;
   var wrap = document.getElementById('variantWrap');
   if(!pname){ wrap.style.display = 'none'; return; }
   wrap.style.display = 'block';
   var variants = PRODUCTS[pname];
+  tileQty = {};
   document.getElementById('variantGrid').innerHTML = variants.map(function(v, i){
     var stock = parseInt(v.stock, 10) || 0;
     var out = stock === 0;
+    tileQty[i] = 1;
     return '<div class="variant'+(out?' disabled':'')+'" data-idx="'+i+'" data-product="'+esc(pname)+'">'
       + '<img src="'+esc(v.imagen)+'" alt="">'
       + '<div>'+esc(v.variante)+'</div>'
       + '<div class="vstock">'+(out?'Agotado':(stock+' disp.'))+'</div>'
+      + (out ? '' :
+          '<div class="v-qty-row">'
+          + '<button class="v-qty-btn" type="button" data-action="minus" data-idx="'+i+'">−</button>'
+          + '<span class="v-qty-val" id="vqty-'+i+'">1</span>'
+          + '<button class="v-qty-btn" type="button" data-action="plus" data-idx="'+i+'">+</button>'
+          + '</div>'
+          + '<button class="v-add-btn" type="button" data-action="add" data-idx="'+i+'">Agregar</button>')
       + '</div>';
   }).join('');
-  document.getElementById('qtyVal').textContent = qty;
 });
 
 document.getElementById('variantGrid').addEventListener('click', function(e){
-  var el = e.target.closest('.variant');
-  if(!el || el.classList.contains('disabled')) return;
-  document.querySelectorAll('.variant').forEach(function(v){ v.classList.remove('selected'); });
-  el.classList.add('selected');
-  var pname = el.dataset.product;
-  var idx = parseInt(el.dataset.idx, 10);
-  selectedVariant = PRODUCTS[pname][idx];
-  qty = 1;
-  document.getElementById('qtyVal').textContent = qty;
+  var btn = e.target.closest('button');
+  if(!btn) return;
+  var idx = parseInt(btn.dataset.idx, 10);
+  var pname = document.getElementById('productSelect').value;
+  var row = PRODUCTS[pname][idx];
+  var stock = parseInt(row.stock, 10) || 0;
+  var action = btn.dataset.action;
+
+  if(action === 'minus'){
+    if(tileQty[idx] > 1) tileQty[idx]--;
+    document.getElementById('vqty-'+idx).textContent = tileQty[idx];
+  } else if(action === 'plus'){
+    if(tileQty[idx] < stock) tileQty[idx]++;
+    document.getElementById('vqty-'+idx).textContent = tileQty[idx];
+  } else if(action === 'add'){
+    cart.push({
+      producto: row.producto,
+      variante: row.variante,
+      imagen: row.imagen,
+      cantidad: tileQty[idx]
+    });
+    tileQty[idx] = 1;
+    document.getElementById('vqty-'+idx).textContent = 1;
+    renderCart();
+  }
 });
 
-document.getElementById('qtyMinus').addEventListener('click', function(){
-  if(qty > 1) qty--;
-  document.getElementById('qtyVal').textContent = qty;
-});
-document.getElementById('qtyPlus').addEventListener('click', function(){
-  if(!selectedVariant) return;
-  var stock = parseInt(selectedVariant.stock, 10) || 0;
-  if(qty < stock) qty++;
-  document.getElementById('qtyVal').textContent = qty;
+function renderCart(){
+  var empty = document.getElementById('cartEmpty');
+  var list = document.getElementById('cartList');
+  if(cart.length === 0){
+    empty.style.display = 'block';
+    list.innerHTML = '';
+    return;
+  }
+  empty.style.display = 'none';
+  list.innerHTML = cart.map(function(item, i){
+    return '<div class="cart-item">'
+      + '<img src="' + esc(item.imagen) + '" alt="">'
+      + '<span class="cart-item-name">' + esc(item.producto) + ' — ' + esc(item.variante) + '</span>'
+      + '<span class="cart-item-qty">x' + item.cantidad + '</span>'
+      + '<button class="cart-item-remove" type="button" data-i="' + i + '">✕</button>'
+      + '</div>';
+  }).join('');
+}
+
+document.getElementById('cartList').addEventListener('click', function(e){
+  var btn = e.target.closest('.cart-item-remove');
+  if(!btn) return;
+  cart.splice(parseInt(btn.dataset.i, 10), 1);
+  renderCart();
 });
 
 document.getElementById('btnDomicilio').addEventListener('click', function(){
@@ -238,7 +292,7 @@ document.getElementById('btnServientrega').addEventListener('click', function(){
 });
 
 document.getElementById('buildBtn').addEventListener('click', function(){
-  if(!selectedVariant){ alert('Elige color y talla primero.'); return; }
+  if(cart.length === 0){ alert('Agrega al menos un producto antes de enviar.'); return; }
   var name = document.getElementById('fName').value.trim();
   var phone = document.getElementById('fPhone').value.trim();
   var cedula = document.getElementById('fCedula').value.trim();
@@ -259,19 +313,18 @@ document.getElementById('buildBtn').addEventListener('click', function(){
     addressLine = office;
   }
 
-  var lines = [
-    'Hola TABO STORE! Quiero hacer este pedido:',
-    '',
-    'Producto 1: ' + selectedVariant.producto,
-    'Color 1: ' + selectedVariant.variante,
-    'Cantidad 1: ' + qty,
-    '',
-    'Nombre: ' + name,
-    'Teléfono: ' + phone,
-    'Cédula: ' + cedula,
-    'Forma de entrega: ' + deliveryLine,
-    'Dirección: ' + addressLine
-  ];
+  var lines = ['Hola TABO STORE! Quiero hacer este pedido:', ''];
+  cart.forEach(function(item, i){
+    lines.push('Producto ' + (i+1) + ': ' + item.producto);
+    lines.push('Color ' + (i+1) + ': ' + item.variante);
+    lines.push('Cantidad ' + (i+1) + ': ' + item.cantidad);
+    lines.push('');
+  });
+  lines.push('Nombre: ' + name);
+  lines.push('Teléfono: ' + phone);
+  lines.push('Cédula: ' + cedula);
+  lines.push('Forma de entrega: ' + deliveryLine);
+  lines.push('Dirección: ' + addressLine);
   if(notes) lines.push('Notas: ' + notes);
 
   var msg = lines.join('\n');
@@ -279,22 +332,29 @@ document.getElementById('buildBtn').addEventListener('click', function(){
   summary.textContent = msg;
   summary.style.display = 'block';
 
-  fetch(BACKEND_URL, {
-    method: 'POST',
-    mode: 'no-cors',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({
-      producto: selectedVariant.producto,
-      variante: selectedVariant.variante,
-      cantidad: qty,
-      nombre: name,
-      telefono: phone,
-      cedula: cedula,
-      formaEntrega: deliveryLine,
-      direccion: addressLine,
-      notas: notes || ''
-    })
-  }).catch(function(){});
+  var items = cart.slice();
+  var i = 0;
+  function sendNext(){
+    if(i >= items.length) return;
+    var item = items[i];
+    fetch(BACKEND_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        producto: item.producto,
+        variante: item.variante,
+        cantidad: item.cantidad,
+        nombre: name,
+        telefono: phone,
+        cedula: cedula,
+        formaEntrega: deliveryLine,
+        direccion: addressLine,
+        notas: notes || ''
+      })
+    }).then(function(){ i++; sendNext(); }).catch(function(){});
+  }
+  sendNext();
 
   var waBtn = document.getElementById('waBtn');
   waBtn.href = 'https://wa.me/' + WHATSAPP_NUMBER + '?text=' + encodeURIComponent(msg);
