@@ -52,6 +52,9 @@
   .product-body{padding:16px;}
   .product-name{font-family:'Manrope',sans-serif;font-weight:800;font-size:18px;}
   .product-price{color:var(--accent);font-weight:700;font-size:16px;margin-top:2px;font-family:'IBM Plex Mono',monospace;}
+  .price-note{font-family:'IBM Plex Sans',sans-serif;font-weight:500;font-size:13px;color:var(--muted);margin-left:4px;}
+  .product-combo{font-size:13.5px;color:var(--ink);margin-top:4px;}
+  .product-combo b{color:var(--accent);font-family:'IBM Plex Mono',monospace;}
   .colorLabel{font-size:12px;color:var(--muted);margin:14px 0 8px;text-transform:uppercase;letter-spacing:.04em;}
   .colorGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:10px;}
   .colorItem{border:1px solid var(--border);border-radius:10px;padding:8px;text-align:center;font-size:11px;}
@@ -95,6 +98,8 @@
 <script>
 var CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRObh23AELq2-BNj7mOJQc_5FzQWTuVtHSuod2R0KP_egjU0CSTdY0G_6DgUH0xoCYI6orcAOMJo9iI/pub?gid=0&single=true&output=csv";
 
+var PRECIO_COMBO = 40;
+
 function parseCSV(text){
   var lines = text.replace(/\r/g,"").split("\n").filter(function(l){ return l.trim().length; });
   var headers = lines[0].split(",").map(function(h){ return h.trim(); });
@@ -109,22 +114,45 @@ function parseCSV(text){
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 function money(n){ return '$' + Number(n).toFixed(2); }
 
-fetch(CSV_URL, {cache:"no-store"})
-  .then(function(r){
-    if(!r.ok) throw new Error("HTTP " + r.status);
-    return r.text();
-  })
-  .then(function(text){
-    var rows = parseCSV(text);
-    render(rows);
-  })
-  .catch(function(err){
-    document.getElementById('status').textContent = "No se pudo cargar el catálogo. Intenta de nuevo en un momento.";
-    console.error(err);
-  });
+var CACHE_KEY = 'tabo-catalogo-csv';
+var rendered = false;
+
+function mostrar(text){
+  var rows = parseCSV(text);
+  if(!rows.length || !rows[0].producto) return false;
+  render(rows);
+  rendered = true;
+  return true;
+}
+
+function cargar(intento){
+  fetch(CSV_URL, {cache:"no-store"})
+    .then(function(r){
+      if(!r.ok) throw new Error("HTTP " + r.status);
+      return r.text();
+    })
+    .then(function(text){
+      if(mostrar(text)){ try { localStorage.setItem(CACHE_KEY, text); } catch(e){} }
+    })
+    .catch(function(err){
+      console.error(err);
+      if(intento < 3){ setTimeout(function(){ cargar(intento + 1); }, 2500); return; }
+      var st = document.getElementById('status');
+      if(!rendered && st){
+        st.innerHTML = 'No se pudo cargar el catálogo. <button type="button" onclick="location.reload()" style="margin-left:6px;padding:6px 12px;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;">Reintentar</button>';
+      }
+    });
+}
+
+try {
+  var guardado = localStorage.getItem(CACHE_KEY);
+  if(guardado) mostrar(guardado);
+} catch(e){}
+cargar(1);
 
 function render(rows){
-  document.getElementById('status').remove();
+  var st = document.getElementById('status');
+  if(st) st.remove();
 
   var byProduct = {};
   rows.forEach(function(r){
@@ -151,7 +179,8 @@ function render(rows){
       + '<img class="product-photo" src="'+esc(mainImg)+'" alt="">'
       + '<div class="product-body">'
       +   '<div class="product-name">'+esc(pname)+'</div>'
-      +   '<div class="product-price">'+money(price)+'</div>'
+      +   '<div class="product-price">'+money(price)+'<span class="price-note">· envío gratis</span></div>'
+      +   '<div class="product-combo">Combo 2 por <b>'+money(PRECIO_COMBO)+'</b> · envío gratis</div>'
       +   '<div class="colorLabel">Colores y tallas disponibles</div>'
       +   '<div class="colorGrid">'+colors+'</div>'
       + '</div></div>';

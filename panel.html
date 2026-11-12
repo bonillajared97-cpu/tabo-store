@@ -146,6 +146,24 @@
     background:var(--accent);color:#fff;font-weight:700;font-size:14px;cursor:pointer;
   }
   .manual-hint{font-size:12px;color:var(--muted);margin-top:10px;}
+
+  .meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:16px;}
+  .meta-block{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:14px;}
+  .meta-title{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;}
+  .meta-big{font-family:'IBM Plex Mono',monospace;font-size:30px;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums;line-height:1.1;}
+  .meta-of{font-family:'IBM Plex Sans',sans-serif;font-size:12px;font-weight:400;color:var(--muted);margin-left:6px;}
+  .meta-bar{position:relative;height:10px;border-radius:99px;background:var(--surface-2);margin:10px 0 8px;}
+  .meta-fill{height:100%;border-radius:99px;background:var(--accent);}
+  .meta-mark{position:absolute;top:-3px;width:2px;height:16px;background:var(--gold);}
+  .meta-sub{font-size:12.5px;color:var(--muted);}
+  .meta-flag{font-size:12.5px;margin-top:4px;color:var(--ink);}
+  .meta-flag.ok{color:var(--accent);font-weight:600;}
+  .maq-row{display:flex;gap:8px;}
+  .manual-card .maq-row input{flex:1;min-width:0;margin:0;}
+  .maq-btn{padding:0 18px;border:none;border-radius:10px;background:var(--accent);color:#fff;font-weight:700;font-size:13px;cursor:pointer;}
+  .maq-btn:disabled{opacity:.6;cursor:default;}
+  .estado-cancelado{background:rgba(180,60,60,.15);color:#B43C3C;}
+  .estado-apartado{background:transparent;color:var(--gold);border:1px dashed var(--gold);}
 </style>
 </head>
 <body>
@@ -158,6 +176,18 @@
 </header>
 
 <main>
+  <h2 class="section">Mis metas</h2>
+  <div class="manual-card">
+    <div id="metaStatus" style="color:var(--muted);font-size:13px;margin-bottom:10px;">Cargando metas...</div>
+    <div class="meta-grid" id="metaGrid"></div>
+    <label for="maqPiezas">Maquila de hoy: piezas que entregaste</label>
+    <div class="maq-row">
+      <input id="maqPiezas" type="number" inputmode="numeric" placeholder="Ej. 46">
+      <button class="maq-btn" type="button" id="maqBtn" disabled>Sumar</button>
+    </div>
+    <div class="manual-hint" id="maqHint">Usa un número negativo para corregir. Los pedidos en estado Apartado (abono) o Cancelado no cuentan para tus metas: cuando el cliente complete el pago, pásalo a Pendiente. La semana va de lunes a sábado.</div>
+  </div>
+
   <h2 class="section">Registrar venta manual</h2>
   <div class="manual-card">
     <label>Producto / variante</label>
@@ -166,9 +196,9 @@
 
     <label>Tipo de precio</label>
     <div class="manual-toggle-row">
-      <button class="manual-toggle-btn active" type="button" id="manualBtnUnidad">Unidad — $17.99</button>
-      <button class="manual-toggle-btn" type="button" id="manualBtnMayor">Mayor — $13.00<span class="toggle-sub">a partir de 6 piezas</span></button>
-      <button class="manual-toggle-btn" type="button" id="manualBtnCombo">Combo 2x — $32.00</button>
+      <button class="manual-toggle-btn active" type="button" id="manualBtnUnidad">Unidad — $24.00<span class="toggle-sub">envío gratis</span></button>
+      <button class="manual-toggle-btn" type="button" id="manualBtnMayor">Mayor — $13.50<span class="toggle-sub">a partir de 6 piezas</span></button>
+      <button class="manual-toggle-btn" type="button" id="manualBtnCombo">Combo 2x — $40.00<span class="toggle-sub">envío gratis</span></button>
     </div>
 
     <div id="cartEmpty" style="color:var(--muted);font-size:13px;margin-bottom:14px;">Carrito vacío — elige un color/talla y agrégalo.</div>
@@ -186,7 +216,7 @@
     <div class="manual-toggle-row">
       <button class="manual-toggle-btn active" type="button" id="manualBtnDomicilio">A domicilio</button>
       <button class="manual-toggle-btn" type="button" id="manualBtnServientrega">Oficina Servientrega</button>
-      <button class="manual-toggle-btn" type="button" id="manualBtnMotorista">Por motorista</button>
+      <button class="manual-toggle-btn" type="button" id="manualBtnMotorista">Por motorista<span class="toggle-sub">solo al norte de Quito</span></button>
     </div>
     <div id="manualDomicilioFields">
       <label>Ciudad (opcional)</label>
@@ -201,6 +231,11 @@
     <div id="manualMotoristaFields" style="display:none;">
       <label>Dirección para el motorista (opcional)</label>
       <input id="manualMotoAddress" placeholder="Ciudad y dirección de entrega">
+    </div>
+    <label>Pago</label>
+    <div class="manual-toggle-row">
+      <button class="manual-toggle-btn active" type="button" id="manualPagoCompleto">Pago completo</button>
+      <button class="manual-toggle-btn" type="button" id="manualPagoAbono">Abono 50% (apartado)<span class="toggle-sub">reserva el stock y no cuenta para tu meta</span></button>
     </div>
     <label>Notas (opcional)</label>
     <input id="manualNotas" placeholder="Ej. Pagó en efectivo">
@@ -239,12 +274,14 @@ var CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRObh23AELq2-BNj7
 var INVENTARIO_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRObh23AELq2-BNj7mOJQc_5FzQWTuVtHSuod2R0KP_egjU0CSTdY0G_6DgUH0xoCYI6orcAOMJo9iI/pub?gid=0&single=true&output=csv";
 var BACKEND_URL = "https://script.google.com/macros/s/AKfycbxPsa_IDV7JwbsK7udjEq7sxFS2mkXyIfvC00mdxB8AuOOmh3DhX999e-WTfiafrj6Z/exec";
 var WHATSAPP_NUMBER_DEFAULT = "593979805503";
-var PRECIO_UNIDAD = 17.99;
-var PRECIO_MAYOR = 13.00;
-var PRECIO_COMBO = 32.00;
+var PRECIO_UNIDAD = 24.00;
+var PRECIO_MAYOR = 13.50;
+var PRECIO_COMBO = 40.00;
+var META = { semMin: 26, semSegura: 41, mesMin: 110, mesSegura: 176, maqSem: 277, maqMes: 1200 };
 var inventarioRows = [];
 var manualTileQty = {};
 var manualEntrega = 'A domicilio';
+var manualPago = 'completo';
 var manualPrecioTipo = 'unidad';
 var cart = [];
 
@@ -296,6 +333,82 @@ fetch(INVENTARIO_CSV_URL, {cache:"no-store"})
     document.getElementById('stockStatus').textContent = "No se pudo cargar el inventario.";
     console.error(err);
   });
+
+function fmt(n){ return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+
+function metaBar(val, min, safe){
+  var pct = Math.min(100, safe ? val / safe * 100 : 0);
+  var mark = min < safe ? '<div class="meta-mark" style="left:' + (min / safe * 100) + '%"></div>' : '';
+  return '<div class="meta-bar"><div class="meta-fill" style="width:' + pct + '%"></div>' + mark + '</div>';
+}
+
+function metaFlag(val, min, safe){
+  if(val >= safe) return '<div class="meta-flag ok">Meta segura alcanzada</div>';
+  if(val >= min) return '<div class="meta-flag ok">Meta mínima alcanzada. Faltan ' + (safe - val) + ' para la segura.</div>';
+  return '<div class="meta-flag">Faltan ' + (min - val) + ' para la meta mínima.</div>';
+}
+
+function metaBlock(titulo, periodo, min, safe, maqMeta){
+  var chaq = periodo.detal + periodo.mayor;
+  var maqFlag = periodo.maquila >= maqMeta
+    ? '<div class="meta-flag ok">Maquila completa</div>'
+    : '<div class="meta-flag">Faltan ' + fmt(maqMeta - periodo.maquila) + ' piezas.</div>';
+  return '<div class="meta-block">'
+    + '<div class="meta-title">' + titulo + '</div>'
+    + '<div class="meta-big">' + chaq + '<span class="meta-of">chaquetas · mínima ' + min + ' · segura ' + safe + '</span></div>'
+    + metaBar(chaq, min, safe)
+    + '<div class="meta-sub">' + periodo.detal + ' al detal · ' + periodo.mayor + ' al mayor</div>'
+    + metaFlag(chaq, min, safe)
+    + '<div class="meta-title" style="margin-top:16px;">Maquila</div>'
+    + '<div class="meta-big">' + fmt(periodo.maquila) + '<span class="meta-of">de ' + fmt(maqMeta) + ' piezas</span></div>'
+    + metaBar(periodo.maquila, maqMeta, maqMeta)
+    + maqFlag
+    + '</div>';
+}
+
+function renderMetas(s){
+  document.getElementById('metaStatus').style.display = 'none';
+  document.getElementById('maqBtn').disabled = false;
+  document.getElementById('metaGrid').innerHTML =
+    metaBlock('Esta semana · lunes a sábado', s.semana, META.semMin, META.semSegura, META.maqSem)
+    + metaBlock('Este mes', s.mes, META.mesMin, META.mesSegura, META.maqMes);
+}
+
+function cargarMetas(){
+  fetch(BACKEND_URL, {cache:"no-store"})
+    .then(function(r){ return r.json(); })
+    .then(renderMetas)
+    .catch(function(err){
+      var st = document.getElementById('metaStatus');
+      st.style.display = 'block';
+      st.textContent = "Tus metas se activan cuando el código de Google esté actualizado. Si ya lo actualizaste, recarga en un momento.";
+      console.error(err);
+    });
+}
+cargarMetas();
+
+document.getElementById('maqBtn').addEventListener('click', function(){
+  var inp = document.getElementById('maqPiezas');
+  var hint = document.getElementById('maqHint');
+  var n = parseInt(inp.value, 10);
+  if(!n){ hint.textContent = 'Escribe cuántas piezas entregaste hoy.'; return; }
+  var btn = this;
+  btn.disabled = true;
+  fetch(BACKEND_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ accion: 'maquila', piezas: n })
+  }).then(function(){
+    hint.textContent = 'Anotado: ' + (n > 0 ? '+' : '') + n + ' piezas de maquila.';
+    inp.value = '';
+    btn.disabled = false;
+    setTimeout(cargarMetas, 2500);
+  }).catch(function(){
+    hint.textContent = 'No se pudo anotar. Intenta de nuevo.';
+    btn.disabled = false;
+  });
+});
 
 function renderStock(rows){
   document.getElementById('stockStatus').remove();
@@ -463,6 +576,17 @@ document.getElementById('manualBtnMotorista').addEventListener('click', function
   document.getElementById('manualMotoristaFields').style.display = 'block';
 });
 
+document.getElementById('manualPagoCompleto').addEventListener('click', function(){
+  manualPago = 'completo';
+  this.classList.add('active');
+  document.getElementById('manualPagoAbono').classList.remove('active');
+});
+document.getElementById('manualPagoAbono').addEventListener('click', function(){
+  manualPago = 'abono';
+  this.classList.add('active');
+  document.getElementById('manualPagoCompleto').classList.remove('active');
+});
+
 document.getElementById('manualBtn').addEventListener('click', function(){
   if(cart.length === 0){ alert('Agrega al menos un producto al carrito primero.'); return; }
   var nombre = document.getElementById('manualNombre').value.trim() || 'Venta directa';
@@ -503,6 +627,7 @@ document.getElementById('manualBtn').addEventListener('click', function(){
       document.getElementById('manualNotas').value = '';
       btn.disabled = false;
       btn.textContent = 'Registrar venta';
+      setTimeout(cargarMetas, 2500);
       return;
     }
     var item = items[i];
@@ -523,7 +648,7 @@ document.getElementById('manualBtn').addEventListener('click', function(){
         precioUnitario: item.precioUnitario,
         total: item.total,
         id: generarId(),
-        estado: 'Pendiente'
+        estado: manualPago === 'abono' ? 'Apartado' : 'Pendiente'
       })
     }).then(function(){
       i++;
@@ -565,7 +690,7 @@ function render(rows){
     var estadoClass = 'estado-' + estado.toLowerCase();
     var hasId = !!r.id;
 
-    var estadoBtns = ['Pendiente', 'Enviado', 'Entregado'].map(function(e){
+    var estadoBtns = ['Apartado', 'Pendiente', 'Enviado', 'Entregado', 'Cancelado'].map(function(e){
       return '<button class="estado-btn' + (e === estado ? ' current' : '') + '" type="button" data-id="' + esc(r.id) + '" data-estado="' + e + '">' + e + '</button>';
     }).join('');
 
@@ -613,7 +738,7 @@ function render(rows){
         mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ accion: 'actualizarEstado', id: id, estado: estado })
-      }).catch(function(){});
+      }).then(function(){ setTimeout(cargarMetas, 2500); }).catch(function(){});
     });
   });
 }

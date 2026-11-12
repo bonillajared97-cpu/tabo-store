@@ -114,9 +114,9 @@
   <div class="card">
     <label>Tipo de precio</label>
     <div class="toggle-row">
-      <button class="toggle-btn active" id="btnPrecioUnidad" type="button">Unidad — $17.99</button>
+      <button class="toggle-btn active" id="btnPrecioUnidad" type="button">Unidad — $24.00<span class="toggle-sub">envío gratis</span></button>
       <button class="toggle-btn" id="btnPrecioMayor" type="button">Al por mayor<span class="toggle-sub">a partir de 6 piezas</span></button>
-      <button class="toggle-btn" id="btnPrecioCombo" type="button">Combo 2x — $32.00</button>
+      <button class="toggle-btn" id="btnPrecioCombo" type="button">Combo 2x — $40.00<span class="toggle-sub">envío gratis</span></button>
     </div>
     <label>Producto</label>
     <select id="productSelect"><option value="">Cargando productos...</option></select>
@@ -144,7 +144,7 @@
     <div class="toggle-row">
       <button class="toggle-btn active" id="btnDomicilio" type="button">A domicilio</button>
       <button class="toggle-btn" id="btnServientrega" type="button">Oficina Servientrega</button>
-      <button class="toggle-btn" id="btnMotorista" type="button">Por motorista</button>
+      <button class="toggle-btn" id="btnMotorista" type="button">Por motorista<span class="toggle-sub">solo al norte de Quito</span></button>
     </div>
     <div id="domicilioFields">
       <label>Ciudad *</label>
@@ -175,9 +175,9 @@
 var CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRObh23AELq2-BNj7mOJQc_5FzQWTuVtHSuod2R0KP_egjU0CSTdY0G_6DgUH0xoCYI6orcAOMJo9iI/pub?gid=0&single=true&output=csv";
 var BACKEND_URL = "https://script.google.com/macros/s/AKfycbxPsa_IDV7JwbsK7udjEq7sxFS2mkXyIfvC00mdxB8AuOOmh3DhX999e-WTfiafrj6Z/exec";
 var WHATSAPP_NUMBER = "593979805503";
-var PRECIO_UNIDAD = 17.99;
-var PRECIO_MAYOR = 13.00;
-var PRECIO_COMBO = 32.00;
+var PRECIO_UNIDAD = 24.00;
+var PRECIO_MAYOR = 13.50;
+var PRECIO_COMBO = 40.00;
 
 var PRODUCTS = {};
 var tileQty = {};
@@ -449,7 +449,7 @@ document.getElementById('buildBtn').addEventListener('click', function(){
         precioUnitario: item.precioUnitario,
         total: item.total,
         id: generarId(),
-        estado: 'Pendiente'
+        estado: item.tipoPrecio === 'mayor' ? 'Apartado' : 'Pendiente'
       })
     }).then(function(){ i++; sendNext(); }).catch(function(){});
   }
