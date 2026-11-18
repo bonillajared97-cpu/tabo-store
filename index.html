@@ -111,6 +111,7 @@
 var CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRObh23AELq2-BNj7mOJQc_5FzQWTuVtHSuod2R0KP_egjU0CSTdY0G_6DgUH0xoCYI6orcAOMJo9iI/pub?gid=0&single=true&output=csv";
 
 var PRECIO_COMBO = 40;
+var MOSTRAR_PRECIO = false;
 
 function parseCSV(text){
   var lines = text.replace(/\r/g,"").split("\n").filter(function(l){ return l.trim().length; });
@@ -204,8 +205,8 @@ function render(rows){
       + '<img class="product-photo" src="'+esc(mainImg)+'" alt="">'
       + '<div class="product-body">'
       +   '<div class="product-name">'+esc(pname)+'</div>'
-      +   '<div class="product-price">'+money(price)+'<span class="price-note">· envío gratis</span></div>'
-      +   '<div class="product-combo">Combo 2 por <b>'+money(PRECIO_COMBO)+'</b> · envío gratis</div>'
+      +   (MOSTRAR_PRECIO ? '<div class="product-price">'+money(price)+'<span class="price-note">· envío gratis</span></div>'
+          + '<div class="product-combo">Combo 2 por <b>'+money(PRECIO_COMBO)+'</b> · envío gratis</div>' : '')
       +   '<div class="colorLabel">Colores y tallas disponibles</div>'
       +   '<div class="colorGrid">'+colors+'</div>'
       + '</div></div>';
